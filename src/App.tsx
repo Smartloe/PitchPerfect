@@ -55,6 +55,7 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [assistantError, setAssistantError] = useState("");
+  const [copyMessage, setCopyMessage] = useState("");
   const [assistantSuggestion, setAssistantSuggestion] =
     useState<ScriptSuggestion | null>(null);
 
@@ -100,6 +101,7 @@ export default function App() {
   const runGeneration = async () => {
     setIsSubmitting(true);
     setAssistantError("");
+    setCopyMessage("");
     try {
       const response = await generateScriptAdvice({
         merchant: {
@@ -119,6 +121,31 @@ export default function App() {
       setAssistantError(message);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const renderValue = (value: string) => {
+    return value.trim() ? value : "待补充";
+  };
+
+  const buildCopyText = (suggestion: ScriptSuggestion) => {
+    return [
+      `核心价值：${renderValue(suggestion.coreValue)}`,
+      `应对疑义：${renderValue(suggestion.objectionResponse)}`,
+      `案例类比：${renderValue(suggestion.caseAnalogy)}`,
+      `推进动作：${renderValue(suggestion.nextStep)}`
+    ].join("\n");
+  };
+
+  const handleCopy = async () => {
+    if (!assistantSuggestion) return;
+    try {
+      await navigator.clipboard.writeText(buildCopyText(assistantSuggestion));
+      setCopyMessage("已复制");
+    } catch (error) {
+      setCopyMessage("复制失败");
+    } finally {
+      setTimeout(() => setCopyMessage(""), 1800);
     }
   };
 
@@ -318,7 +345,24 @@ export default function App() {
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">话术建议</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">话术建议</h2>
+              {assistantSuggestion && !assistantError && (
+                <div className="flex items-center gap-2">
+                  {copyMessage && (
+                    <span className="text-xs text-slate-500">{copyMessage}</span>
+                  )}
+                  <Button
+                    type="button"
+                    className="bg-slate-800 hover:bg-slate-700"
+                    onClick={handleCopy}
+                    disabled={isSubmitting}
+                  >
+                    复制话术
+                  </Button>
+                </div>
+              )}
+            </div>
             {assistantError && (
               <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
                 <p>{assistantError}</p>
@@ -343,14 +387,16 @@ export default function App() {
                   <p className="text-xs font-semibold uppercase text-slate-500">
                     核心价值
                   </p>
-                  <p className="mt-1">{assistantSuggestion.coreValue}</p>
+                  <p className="mt-1">
+                    {renderValue(assistantSuggestion.coreValue)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase text-slate-500">
                     应对疑义
                   </p>
                   <p className="mt-1">
-                    {assistantSuggestion.objectionResponse || "待补充"}
+                    {renderValue(assistantSuggestion.objectionResponse)}
                   </p>
                 </div>
                 <div>
@@ -358,14 +404,16 @@ export default function App() {
                     案例类比
                   </p>
                   <p className="mt-1">
-                    {assistantSuggestion.caseAnalogy || "待补充"}
+                    {renderValue(assistantSuggestion.caseAnalogy)}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase text-slate-500">
                     推进动作
                   </p>
-                  <p className="mt-1">{assistantSuggestion.nextStep || "待补充"}</p>
+                  <p className="mt-1">
+                    {renderValue(assistantSuggestion.nextStep)}
+                  </p>
                 </div>
               </div>
             )}
