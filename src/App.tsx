@@ -5,7 +5,13 @@ import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import { Select } from "./components/ui/select";
 import { Textarea } from "./components/ui/textarea";
-import type { MerchantProfile, ProductId } from "./types/salesAssistant";
+import type {
+  MerchantObjection,
+  MerchantProfile,
+  ProductId,
+  ScriptSuggestion
+} from "./types/salesAssistant";
+import { generateScriptAdvice } from "./lib/salesAssistantClient";
 
 const flowSteps = [
   {
@@ -48,6 +54,9 @@ export default function App() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [assistantError, setAssistantError] = useState("");
+  const [assistantSuggestion, setAssistantSuggestion] =
+    useState<ScriptSuggestion | null>(null);
 
   const selectedProduct = useMemo(
     () => productCatalog.find((item) => item.id === form.productId),
@@ -80,7 +89,40 @@ export default function App() {
     return nextErrors;
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const buildObjections = (): MerchantObjection[] => {
+    if (!selectedProduct) return [];
+    return selectedProduct.questions.map((question) => ({
+      topic: "常见疑义",
+      detail: question
+    }));
+  };
+
+  const runGeneration = async () => {
+    setIsSubmitting(true);
+    setAssistantError("");
+    try {
+      const response = await generateScriptAdvice({
+        merchant: {
+          industry: form.industry,
+          scale: form.scale,
+          businessDistrict: form.businessDistrict,
+          focusAreas: form.focusAreas,
+          notes: form.notes
+        },
+        productId: form.productId,
+        objections: buildObjections()
+      });
+      setAssistantSuggestion(response.suggestion);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "生成失败，请稍后重试。";
+      setAssistantError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const nextErrors = validate();
     setErrors(nextErrors);
@@ -91,10 +133,7 @@ export default function App() {
     }
 
     setSubmitError("");
-    setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-    }, 700);
+    await runGeneration();
   };
 
   return (
@@ -256,26 +295,88 @@ export default function App() {
           </form>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">常见疑义</h2>
-          {selectedProduct ? (
-            <div className="mt-4">
-              <p className="text-sm font-semibold text-slate-800">
-                {selectedProduct.name}
+        <div className="space-y-6">
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">常见疑义</h2>
+            {selectedProduct ? (
+              <div className="mt-4">
+                <p className="text-sm font-semibold text-slate-800">
+                  {selectedProduct.name}
+                </p>
+                <p className="mt-2 text-sm text-slate-600">
+                  {selectedProduct.summary}
+                </p>
+                <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-slate-700">
+                  {selectedProduct.questions.map((question) => (
+                    <li key={question}>{question}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-slate-500">暂无可用产品信息。</p>
+            )}
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">话术建议</h2>
+            {assistantError && (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                <p>{assistantError}</p>
+                <Button
+                  type="button"
+                  className="mt-3 bg-red-600 hover:bg-red-500"
+                  onClick={runGeneration}
+                  disabled={isSubmitting}
+                >
+                  重新生成
+                </Button>
+              </div>
+            )}
+
+            {!assistantError && isSubmitting && (
+              <p className="mt-4 text-sm text-slate-500">生成中，请稍候...</p>
+            )}
+
+            {!assistantError && !isSubmitting && assistantSuggestion && (
+              <div className="mt-4 space-y-4 text-sm text-slate-700">
+                <div>
+                  <p className="text-xs font-semibold uppercase text-slate-500">
+                    核心价值
+                  </p>
+                  <p className="mt-1">{assistantSuggestion.coreValue}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase text-slate-500">
+                    应对疑义
+                  </p>
+                  <p className="mt-1">
+                    {assistantSuggestion.objectionResponse || "待补充"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase text-slate-500">
+                    案例类比
+                  </p>
+                  <p className="mt-1">
+                    {assistantSuggestion.caseAnalogy || "待补充"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase text-slate-500">
+                    推进动作
+                  </p>
+                  <p className="mt-1">{assistantSuggestion.nextStep || "待补充"}</p>
+                </div>
+              </div>
+            )}
+
+            {!assistantError && !isSubmitting && !assistantSuggestion && (
+              <p className="mt-4 text-sm text-slate-500">
+                填写商户画像并提交后，这里会展示生成的话术建议。
               </p>
-              <p className="mt-2 text-sm text-slate-600">
-                {selectedProduct.summary}
-              </p>
-              <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-slate-700">
-                {selectedProduct.questions.map((question) => (
-                  <li key={question}>{question}</li>
-                ))}
-              </ul>
-            </div>
-          ) : (
-            <p className="mt-4 text-sm text-slate-500">暂无可用产品信息。</p>
-          )}
-        </section>
+            )}
+          </section>
+        </div>
       </div>
     </main>
   );
