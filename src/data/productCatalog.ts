@@ -1,4 +1,6 @@
-export const productCatalog = [
+import type { Product } from "../types/salesAssistant";
+
+export const productCatalog: Product[] = [
   {
     id: "online-sales",
     name: "线上商品售卖",
