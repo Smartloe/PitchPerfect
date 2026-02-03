@@ -1,2 +1,6 @@
 /plan
 /issues
+.env*
+node_modules/
+dist/
+tsconfig.tsbuildinfo
