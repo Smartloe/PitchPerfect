@@ -1,87 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   color: #0f172a;
   background-color: #f8fafc;
 }
 
-* {
-  box-sizing: border-box;
-}
-
 body {
   margin: 0;
-}
-
-main {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 48px 24px 64px;
-}
-
-header {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-h1 {
-  font-size: 32px;
-  margin: 0;
-}
-
-p {
-  margin: 0;
-  color: #475569;
-}
-
-section {
-  margin-top: 32px;
-  padding: 20px;
-  background: #ffffff;
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
-}
-
-select {
-  margin-top: 12px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid #cbd5f5;
-  font-size: 14px;
-}
-
-ul {
-  margin: 16px 0 0;
-  padding: 0 0 0 18px;
-}
-
-li {
-  margin-bottom: 8px;
-  color: #1f2937;
-}
-
-.flow {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.flow-card {
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: #f1f5f9;
-  border: 1px dashed #cbd5f5;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: #e2e8f0;
-  color: #334155;
+  background-color: #f8fafc;
+  color: #0f172a;
 }
