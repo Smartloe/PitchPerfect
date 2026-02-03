@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { productCatalog } from "./data/productCatalog";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
@@ -36,6 +36,48 @@ const focusOptions = [
   "留资效率"
 ];
 
+const sampleProfiles = [
+  {
+    id: "coffee-shop",
+    label: "社区咖啡馆",
+    profile: {
+      industry: "咖啡",
+      scale: "6-15人",
+      businessDistrict: "社区生活圈",
+      focusAreas: ["交易提升", "案例背书"],
+      notes: "周末客流高峰明显，想提升复购"
+    },
+    productId: "online-sales" as ProductId,
+    question: "线上下单会不会影响到店体验？"
+  },
+  {
+    id: "fitness-studio",
+    label: "精品健身工作室",
+    profile: {
+      industry: "健身",
+      scale: "16-50人",
+      businessDistrict: "写字楼商圈",
+      focusAreas: ["流量增长", "投放成本"],
+      notes: "希望吸引白领新客"
+    },
+    productId: "ad-campaign" as ProductId,
+    question: "投放周期和起量速度怎么样？"
+  },
+  {
+    id: "dessert-store",
+    label: "甜品店",
+    profile: {
+      industry: "甜品",
+      scale: "1-5人",
+      businessDistrict: "购物中心",
+      focusAreas: ["留资效率", "交易提升"],
+      notes: "想沉淀节假日新客联系方式"
+    },
+    productId: "lead-collection" as ProductId,
+    question: "留资后可以带来多少次复购？"
+  }
+];
+
 type FormState = MerchantProfile & {
   productId: ProductId;
 };
@@ -69,11 +111,20 @@ export default function App() {
     useState<ScriptSuggestion | null>(null);
   const [merchantQuestion, setMerchantQuestion] = useState("");
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const historyRef = useRef<HTMLDivElement>(null);
 
   const selectedProduct = useMemo(
     () => productCatalog.find((item) => item.id === form.productId),
     [form.productId]
   );
+
+  useEffect(() => {
+    if (!historyRef.current) return;
+    historyRef.current.scrollTo({
+      top: historyRef.current.scrollHeight,
+      behavior: "smooth"
+    });
+  }, [history]);
 
   const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -130,17 +181,19 @@ export default function App() {
         objections: buildObjections()
       });
       setAssistantSuggestion(response.suggestion);
-      setHistory((prev) => [
-        {
-          id: `${Date.now()}`,
-          createdAt: new Date().toLocaleString("zh-CN"),
-          productName: selectedProduct?.name ?? form.productId,
-          industry: form.industry,
-          question: merchantQuestion.trim(),
-          suggestion: response.suggestion
-        },
-        ...prev
-      ].slice(0, 5));
+      setHistory((prev) =>
+        [
+          ...prev,
+          {
+            id: `${Date.now()}`,
+            createdAt: new Date().toLocaleString("zh-CN"),
+            productName: selectedProduct?.name ?? form.productId,
+            industry: form.industry,
+            question: merchantQuestion.trim(),
+            suggestion: response.suggestion
+          }
+        ].slice(-5)
+      );
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "生成失败，请稍后重试。";
@@ -148,6 +201,22 @@ export default function App() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const applySampleProfile = (sample: (typeof sampleProfiles)[number]) => {
+    setForm({
+      industry: sample.profile.industry,
+      scale: sample.profile.scale,
+      businessDistrict: sample.profile.businessDistrict,
+      focusAreas: sample.profile.focusAreas,
+      notes: sample.profile.notes ?? "",
+      productId: sample.productId
+    });
+    setMerchantQuestion(sample.question);
+    setErrors({});
+    setSubmitError("");
+    setAssistantError("");
+    setAssistantSuggestion(null);
   };
 
   const renderValue = (value: string) => {
@@ -228,6 +297,21 @@ export default function App() {
                 正在生成建议...
               </span>
             )}
+          </div>
+          <div className="mt-4">
+            <p className="text-xs text-slate-500">示例画像一键填充：</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {sampleProfiles.map((sample) => (
+                <button
+                  key={sample.id}
+                  type="button"
+                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-slate-400"
+                  onClick={() => applySampleProfile(sample)}
+                >
+                  {sample.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
@@ -378,6 +462,18 @@ export default function App() {
                 <p className="mt-2 text-sm text-slate-600">
                   {selectedProduct.summary}
                 </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {selectedProduct.questions.map((question) => (
+                    <button
+                      key={question}
+                      type="button"
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 transition hover:border-slate-400"
+                      onClick={() => setMerchantQuestion(question)}
+                    >
+                      {question}
+                    </button>
+                  ))}
+                </div>
                 <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-slate-700">
                   {selectedProduct.questions.map((question) => (
                     <li key={question}>{question}</li>
@@ -475,11 +571,14 @@ export default function App() {
             {history.length === 0 ? (
               <p className="mt-4 text-sm text-slate-500">暂无生成记录。</p>
             ) : (
-              <div className="mt-4 space-y-3">
+              <div
+                ref={historyRef}
+                className="mt-4 max-h-64 space-y-3 overflow-y-auto pr-1"
+              >
                 {history.map((item) => (
                   <div
                     key={item.id}
-                    className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm"
+                    className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm transition hover:border-slate-200"
                   >
                     <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                       <span>{item.createdAt}</span>
