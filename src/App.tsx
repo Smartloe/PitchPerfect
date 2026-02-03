@@ -42,6 +42,15 @@ type FormState = MerchantProfile & {
 
 type FormErrors = Partial<Record<keyof FormState, string>>;
 
+type HistoryItem = {
+  id: string;
+  createdAt: string;
+  productName: string;
+  industry: string;
+  question: string;
+  suggestion: ScriptSuggestion;
+};
+
 export default function App() {
   const [form, setForm] = useState<FormState>({
     industry: "",
@@ -58,6 +67,8 @@ export default function App() {
   const [copyMessage, setCopyMessage] = useState("");
   const [assistantSuggestion, setAssistantSuggestion] =
     useState<ScriptSuggestion | null>(null);
+  const [merchantQuestion, setMerchantQuestion] = useState("");
+  const [history, setHistory] = useState<HistoryItem[]>([]);
 
   const selectedProduct = useMemo(
     () => productCatalog.find((item) => item.id === form.productId),
@@ -92,10 +103,14 @@ export default function App() {
 
   const buildObjections = (): MerchantObjection[] => {
     if (!selectedProduct) return [];
-    return selectedProduct.questions.map((question) => ({
+    const base = selectedProduct.questions.map((question) => ({
       topic: "常见疑义",
       detail: question
     }));
+    if (merchantQuestion.trim()) {
+      base.unshift({ topic: "商户提问", detail: merchantQuestion.trim() });
+    }
+    return base;
   };
 
   const runGeneration = async () => {
@@ -115,6 +130,17 @@ export default function App() {
         objections: buildObjections()
       });
       setAssistantSuggestion(response.suggestion);
+      setHistory((prev) => [
+        {
+          id: `${Date.now()}`,
+          createdAt: new Date().toLocaleString("zh-CN"),
+          productName: selectedProduct?.name ?? form.productId,
+          industry: form.industry,
+          question: merchantQuestion.trim(),
+          suggestion: response.suggestion
+        },
+        ...prev
+      ].slice(0, 5));
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "生成失败，请稍后重试。";
@@ -324,6 +350,25 @@ export default function App() {
 
         <div className="space-y-6">
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">商户提问区</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              可填写商户的具体疑义，系统会优先纳入话术建议。
+            </p>
+            <Textarea
+              className="mt-4"
+              rows={4}
+              placeholder="例如：我们担心投放后成本太高，具体ROI能看到吗？"
+              value={merchantQuestion}
+              onChange={(event) => setMerchantQuestion(event.target.value)}
+            />
+            {!merchantQuestion.trim() && (
+              <p className="mt-2 text-xs text-slate-400">
+                当前为空，将默认使用常见疑义作为输入。
+              </p>
+            )}
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">常见疑义</h2>
             {selectedProduct ? (
               <div className="mt-4">
@@ -422,6 +467,38 @@ export default function App() {
               <p className="mt-4 text-sm text-slate-500">
                 填写商户画像并提交后，这里会展示生成的话术建议。
               </p>
+            )}
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">历史记录区</h2>
+            {history.length === 0 ? (
+              <p className="mt-4 text-sm text-slate-500">暂无生成记录。</p>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {history.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm"
+                  >
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                      <span>{item.createdAt}</span>
+                      <span>·</span>
+                      <span>{item.productName}</span>
+                      <span>·</span>
+                      <span>{item.industry}</span>
+                    </div>
+                    {item.question && (
+                      <p className="mt-2 text-slate-600">
+                        商户提问：{item.question}
+                      </p>
+                    )}
+                    <p className="mt-2 text-slate-700">
+                      核心价值：{renderValue(item.suggestion.coreValue)}
+                    </p>
+                  </div>
+                ))}
+              </div>
             )}
           </section>
         </div>
