@@ -1,24 +1,94 @@
 # PitchPerfect - 新人销售话术助手
 
+面向服务零售新人销售的对话助手。通过输入商户画像与意向产品，快速生成可复制的销售话术，提升处理疑义与签约效率。
+
+## 功能概览
+
+- 商户画像表单：行业、规模、商圈、关注点、意向产品
+- 商户提问区：支持快捷疑义按钮与自定义问题
+- 话术生成：四段式输出（核心价值/应对疑义/案例类比/推进动作）
+- 一键复制话术与历史回填
+- 基础反爬与密钥保护：前端不直连大模型
+
+## 技术栈
+
+- React + Vite + TypeScript
+- Tailwind CSS
+- Node.js 原生 http 服务端代理
+
 ## 三方对话流程
 
-1. 新人销售输入商户画像（行业、规模、商圈、关注点）并选择意向产品。
-2. 商户 Agent 提出交易、流量、案例等疑义挑战。
-3. 销售助手 Agent 基于画像与产品生成话术建议，帮助推进签约。
-
-## 当前范围
-
-- 三类产品：线上商品售卖 / 客户留资 / 广告投放
-- 每类产品内置常见疑义清单，供新人销售快速对照
-
-## 安全与反爬说明
-
-- 前端不再直接调用大模型接口，统一通过 `/api/chat` 服务端代理。
-- 服务端从 `LONGCAT_API_KEY` 读取密钥，前端代码不包含密钥。
-- 服务端包含基础反爬：Origin 白名单与请求频率限制（默认 30 次/分钟）。
+1. 新人销售输入商户画像并选择意向产品
+2. 商户 Agent 抛出交易/流量/案例疑义
+3. 销售助手 Agent 生成话术建议并推进签约
 
 ## 本地启动
 
-1. 在 `.env.local` 中设置：`LONGCAT_API_KEY=你的密钥`
-2. 启动服务：`npm run dev`
-3. 打开页面：`http://localhost:5173/`
+1. 安装依赖
+
+```
+npm install
+```
+
+2. 配置环境变量（不会被提交）
+
+`.env.local`
+```
+LONGCAT_API_KEY=你的密钥
+ALLOWED_ORIGINS=http://localhost:5173
+PORT=8787
+```
+
+3. 启动服务
+
+```
+npm run dev
+```
+
+4. 打开页面
+
+```
+http://localhost:5173/
+```
+
+## 常用脚本
+
+- `npm run dev`：同时启动前端与服务端代理
+- `npm run dev:client`：仅启动前端
+- `npm run dev:server`：仅启动服务端代理
+- `npm run build`：构建前端
+
+## 服务端代理与反爬
+
+- 前端统一请求 `/api/chat`，不暴露 LongCat API 域名与密钥
+- 服务端仅从 `LONGCAT_API_KEY` 读取密钥
+- Origin 白名单校验（默认仅 `http://localhost:5173`）
+- IP 频率限制：默认 30 次/分钟
+
+## API 说明
+
+- 前端请求：`POST /api/chat`
+- 服务端代理：`http://localhost:8787/api/chat`
+- 响应错误：
+  - `403` Origin 不在白名单
+  - `429` 超出请求频率
+  - `500` 服务端异常或密钥缺失
+
+## 常见问题排查
+
+- `403 Forbidden`：检查 `ALLOWED_ORIGINS` 是否包含当前访问域名
+- `500 Missing LONGCAT_API_KEY`：检查 `.env.local` 是否配置密钥并重启 `npm run dev`
+- `429 Too Many Requests`：降低请求频率或调整服务端限流
+- `Network 中出现 LongCat 域名`：检查 `vite.config.ts` 是否含 `/api` 代理
+
+## 目录结构
+
+- `src/` 前端代码
+- `server/` 服务端代理
+- `issues/` 任务追踪 CSV（被 gitignore，需要 `git add -f`）
+- `plan/` 规划文件
+
+## 安全提示
+
+- 不要提交 `.env.local`
+- 不要在前端代码中硬编码密钥
