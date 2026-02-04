@@ -13,6 +13,8 @@
 
 body {
   margin: 0;
-  background-color: #f8fafc;
+  background: radial-gradient(600px 320px at 15% 10%, rgba(37, 99, 235, 0.12), transparent 55%),
+    radial-gradient(540px 260px at 85% 5%, rgba(16, 185, 129, 0.12), transparent 55%),
+    #f8fafc;
   color: #0f172a;
 }
