@@ -113,6 +113,53 @@ export type DrillReport = {
   nextSteps: string[];
 };
 
+function buildDrillQuestionsPrompt(options: {
+  industry: string;
+  productId: string;
+  focusAreas: string[];
+  notes?: string;
+}) {
+  return `你是商户 Agent。请基于行业、意向产品与关注点，生成 5-7 条商户提问，覆盖交易、流量、案例、成本与推进动作等主题。\n\n要求：\n1. 只输出 JSON 数组\n2. 每条问题 12-22 字\n3. 语气口吻真实\n\n行业：${options.industry}\n意向产品：${options.productId}\n关注点：${options.focusAreas.join("、")}\n补充：${options.notes || "无"}\n`;
+}
+
+export async function generateDrillQuestions(options: {
+  industry: string;
+  productId: string;
+  focusAreas: string[];
+  notes?: string;
+}): Promise<string[]> {
+  const content = await createChatCompletion({
+    messages: [
+      {
+        role: "user",
+        content: buildDrillQuestionsPrompt(options)
+      }
+    ]
+  });
+
+  const cleaned = content
+    .trim()
+    .replace(/^```json/i, "")
+    .replace(/^```/i, "")
+    .replace(/```$/, "")
+    .trim();
+
+  try {
+    const payload = JSON.parse(cleaned);
+    if (Array.isArray(payload)) {
+      return payload.map((item) => String(item)).filter(Boolean).slice(0, 7);
+    }
+  } catch (error) {
+    // fall through
+  }
+
+  return cleaned
+    .split(/\n+/)
+    .map((line) => line.replace(/^[-*\\d.\\s]+/, "").trim())
+    .filter(Boolean)
+    .slice(0, 7);
+}
+
 function buildScorePrompt(options: {
   industry: string;
   productId: string;

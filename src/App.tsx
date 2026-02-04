@@ -19,6 +19,7 @@ import type {
 } from "./types/salesAssistant";
 import {
   generateNotesSuggestions,
+  generateDrillQuestions,
   generateDrillReport,
   scoreSalesAnswer,
   generateScriptAdvice
@@ -161,6 +162,10 @@ export default function App() {
   const [drillLoading, setDrillLoading] = useState(false);
   const [drillError, setDrillError] = useState("");
   const [drillReport, setDrillReport] = useState<DrillReport | null>(null);
+  const [drillQuestionsLoading, setDrillQuestionsLoading] = useState(false);
+  const [drillQuestionSource, setDrillQuestionSource] = useState<
+    "ai" | "default" | ""
+  >("");
   const historyRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -341,19 +346,47 @@ export default function App() {
     }));
   };
 
-  const startDrill = () => {
+  const loadDrillQuestions = async () => {
     if (!form.industry.trim() || !selectedProduct) {
       setDrillError("请先填写行业并选择意向产品");
-      return;
+      return [];
     }
-    const questions = selectedProduct.questions.slice(0, 7);
-    setDrillQuestions(questions);
+    setDrillQuestionsLoading(true);
+    setDrillError("");
+    try {
+      const questions = await generateDrillQuestions({
+        industry: form.industry,
+        productId: form.productId,
+        focusAreas: form.focusAreas,
+        notes: form.notes
+      });
+      if (questions.length >= 3) {
+        setDrillQuestionSource("ai");
+        setDrillQuestions(questions);
+        return questions;
+      }
+      setDrillQuestionSource("default");
+      setDrillQuestions(selectedProduct.questions.slice(0, 7));
+      setDrillError("生成问题不足，已使用默认问题");
+      return selectedProduct.questions.slice(0, 7);
+    } catch (error) {
+      setDrillQuestionSource("default");
+      setDrillQuestions(selectedProduct.questions.slice(0, 7));
+      setDrillError("生成失败，已使用默认问题");
+      return selectedProduct.questions.slice(0, 7);
+    } finally {
+      setDrillQuestionsLoading(false);
+    }
+  };
+
+  const startDrill = async () => {
+    const questions = await loadDrillQuestions();
+    if (questions.length === 0) return;
     setDrillItems(questions.map((question) => ({ question, answer: "" })));
     setDrillIndex(0);
     setDrillAnswer("");
     setDrillActive(true);
     setDrillReport(null);
-    setDrillError("");
   };
 
   const computeFallbackReport = (items: DrillItem[]): DrillReport => {
@@ -1001,27 +1034,40 @@ export default function App() {
       </div>
 
       <section className="mt-10 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 font-['Rubik']">
-              销售演练系统
-            </h2>
-            <p className="mt-1 text-sm text-slate-600">
-              商户连续提问，你逐题回答并获取评分，完成后生成报告。
-            </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900 font-['Rubik']">
+                销售演练系统
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                商户连续提问，你逐题回答并获取评分，完成后生成报告。
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              {drillQuestions.length > 0 && (
+                <span>
+                  进度 {Math.min(drillIndex + 1, drillQuestions.length)}/
+                  {drillQuestions.length}
+                </span>
+              )}
+              {drillQuestionSource && (
+                <span>
+                  问题来源：{drillQuestionSource === "ai" ? "AI" : "默认"}
+                </span>
+              )}
+              <Button
+                type="button"
+                onClick={startDrill}
+                disabled={drillLoading || drillQuestionsLoading}
+              >
+                {drillQuestionsLoading
+                  ? "生成中..."
+                  : drillActive
+                    ? "重新开始"
+                    : "开始演练"}
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            {drillQuestions.length > 0 && (
-              <span>
-                进度 {Math.min(drillIndex + 1, drillQuestions.length)}/
-                {drillQuestions.length}
-              </span>
-            )}
-            <Button type="button" onClick={startDrill} disabled={drillLoading}>
-              {drillActive ? "重新开始" : "开始演练"}
-            </Button>
-          </div>
-        </div>
 
         {drillError && (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
