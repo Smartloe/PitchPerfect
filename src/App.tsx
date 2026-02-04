@@ -25,21 +25,7 @@ import {
   scoreSalesAnswerStream,
   generateScriptAdvice
 } from "./lib/salesAssistantClient";
-
-const flowSteps = [
-  {
-    role: "新人销售",
-    goal: "输入商户画像，明确对话目标与意向产品。"
-  },
-  {
-    role: "商户 Agent",
-    goal: "抛出疑义与挑战，聚焦交易、流量与案例。"
-  },
-  {
-    role: "销售助手 Agent",
-    goal: "基于画像与产品给出话术建议，推进签约。"
-  }
-];
+import { cn } from "./lib/cn";
 
 const focusOptions = [
   "交易提升",
@@ -93,6 +79,165 @@ const sampleProfiles = [
   }
 ];
 
+const navItems = [
+  {
+    id: "dashboard",
+    label: "首页",
+    description: "仪表盘",
+    icon: "dashboard"
+  },
+  {
+    id: "training",
+    label: "训练",
+    description: "对话模拟",
+    icon: "training"
+  },
+  {
+    id: "cases",
+    label: "案例库",
+    description: "成功案例",
+    icon: "cases"
+  },
+  {
+    id: "toolbox",
+    label: "工具箱",
+    description: "模板收藏",
+    icon: "toolbox"
+  },
+  {
+    id: "profile",
+    label: "个人中心",
+    description: "成长数据",
+    icon: "profile"
+  }
+] as const;
+
+const trainingTabs = [
+  {
+    id: "assistant",
+    label: "话术生成",
+    description: "生成可复制话术"
+  },
+  {
+    id: "drill",
+    label: "销售演练",
+    description: "模拟对话与评分"
+  }
+] as const;
+
+const caseLibrary = [
+  {
+    id: "case-fitness",
+    title: "写字楼健身工作室首周引流",
+    industry: "健身",
+    district: "写字楼商圈",
+    summary: "白领午间时段专项投放 + 体验课留资，提升转化效率。",
+    result: "7天新增线索 45 个，转化 12 单。",
+    highlights: ["分时段预算控制", "短周期验证素材转化", "体验课引导成交"],
+    script:
+      "我们先用白领午间高峰做 7 天投放，预算分段控制，先看咨询成本，再逐步放量。"
+  },
+  {
+    id: "case-dessert",
+    title: "甜品店节假日复购提升",
+    industry: "甜品",
+    district: "购物中心",
+    summary: "节假日套餐 + 留资提醒，复购率显著提升。",
+    result: "节假日复购率提升 28%。",
+    highlights: ["高频节日套餐", "会员留资提醒", "到店转化跟进"],
+    script:
+      "我们把节假日套餐和留资权益绑定，先拉高到店意向，再用短信提醒完成二次转化。"
+  },
+  {
+    id: "case-coffee",
+    title: "社区咖啡馆周末客流优化",
+    industry: "咖啡",
+    district: "社区生活圈",
+    summary: "周末套餐 + 线上下单，缓解排队并提升客单。",
+    result: "周末客单提升 18%，线上单占比 35%。",
+    highlights: ["线上点单分流", "套餐联动", "社群复购"],
+    script:
+      "先把周末热销套餐上线并引导线上下单，分流排队压力，同时提升客单。"
+  },
+  {
+    id: "case-beauty",
+    title: "美容工作室投放成本下降",
+    industry: "美容",
+    district: "社区生活圈",
+    summary: "素材 A/B 测试 + 分层投放，降低平均获客成本。",
+    result: "获客成本下降 22%。",
+    highlights: ["素材快速试错", "预算分层", "低成本人群扩量"],
+    script:
+      "先用 2 套素材做 3 天试投放，保留转化高的素材后逐步扩量。"
+  }
+];
+
+const toolboxTemplates = [
+  {
+    id: "tpl-open",
+    category: "开场破冰",
+    title: "商圈痛点切入",
+    content:
+      "先帮您把写字楼白领的午间需求跑通，确保每一笔投放都有到店目标。"
+  },
+  {
+    id: "tpl-value",
+    category: "价值阐述",
+    title: "交易增长",
+    content:
+      "我们会把预算拆成小周期验证，先跑通转化路径，再逐步放量保障投入产出。"
+  },
+  {
+    id: "tpl-case",
+    category: "案例背书",
+    title: "同业案例",
+    content:
+      "附近同类型门店用分时段投放 + 体验课留资，7 天新增线索 40+。"
+  },
+  {
+    id: "tpl-cost",
+    category: "成本控制",
+    title: "预算可控",
+    content:
+      "预算可以按天设置，先小额试跑，成本达标再逐步加码。"
+  },
+  {
+    id: "tpl-next",
+    category: "推进动作",
+    title: "下一步推进",
+    content:
+      "我们先安排 3 天试投放，回收数据后一起确认是否扩大预算。"
+  },
+  {
+    id: "tpl-retention",
+    category: "留资转化",
+    title: "留资话术",
+    content:
+      "我们把留资动作放在高意向节点，后续用福利提醒完成到店。"
+  }
+];
+
+const achievementTracks = [
+  {
+    id: "ach-streak",
+    title: "连续训练 3 天",
+    description: "保持每日练习节奏",
+    progress: 66
+  },
+  {
+    id: "ach-score",
+    title: "平均得分 80+",
+    description: "回答结构稳定",
+    progress: 45
+  },
+  {
+    id: "ach-scripts",
+    title: "收藏 5 条话术",
+    description: "建立个人话术库",
+    progress: 20
+  }
+];
+
 type FormState = MerchantProfile & {
   productId: ProductId;
 };
@@ -124,6 +269,9 @@ type DrillReport = {
   nextSteps: string[];
 };
 
+type NavId = (typeof navItems)[number]["id"];
+type TrainingTab = (typeof trainingTabs)[number]["id"];
+
 const requiredFieldLabels: Record<keyof FormState, string> = {
   industry: "行业",
   scale: "规模",
@@ -133,7 +281,137 @@ const requiredFieldLabels: Record<keyof FormState, string> = {
   productId: "意向产品"
 };
 
+type IconName =
+  | "dashboard"
+  | "training"
+  | "cases"
+  | "toolbox"
+  | "profile"
+  | "spark"
+  | "play"
+  | "bookmark"
+  | "mic"
+  | "trend"
+  | "search"
+  | "filter";
+
+const Icon = ({ name, className }: { name: IconName; className?: string }) => {
+  const base = "h-5 w-5";
+  const classes = cn(base, className);
+  const props = {
+    className: classes,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const
+  };
+  switch (name) {
+    case "dashboard":
+      return (
+        <svg {...props}>
+          <rect x="3" y="3" width="8" height="8" rx="1.5" />
+          <rect x="13" y="3" width="8" height="5" rx="1.5" />
+          <rect x="13" y="10" width="8" height="11" rx="1.5" />
+          <rect x="3" y="13" width="8" height="8" rx="1.5" />
+        </svg>
+      );
+    case "training":
+      return (
+        <svg {...props}>
+          <path d="M21 12a7 7 0 0 1-7 7H7l-4 3V7a4 4 0 0 1 4-4h7a7 7 0 0 1 7 7Z" />
+        </svg>
+      );
+    case "cases":
+      return (
+        <svg {...props}>
+          <path d="M4 5a3 3 0 0 1 3-3h11v18H7a3 3 0 0 0-3 3Z" />
+          <path d="M8 5h7" />
+          <path d="M8 9h7" />
+          <path d="M8 13h5" />
+        </svg>
+      );
+    case "toolbox":
+      return (
+        <svg {...props}>
+          <path d="M9 4h6l1 3h4v4H4V7h4l1-3Z" />
+          <path d="M4 11h16v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
+          <path d="M10 15h4" />
+        </svg>
+      );
+    case "profile":
+      return (
+        <svg {...props}>
+          <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" />
+          <path d="M4 21a8 8 0 0 1 16 0" />
+        </svg>
+      );
+    case "spark":
+      return (
+        <svg {...props}>
+          <path d="m12 2 1.7 4.6L18 8l-4.3 1.4L12 14l-1.7-4.6L6 8l4.3-1.4L12 2Z" />
+        </svg>
+      );
+    case "play":
+      return (
+        <svg {...props}>
+          <path d="M7 5v14l11-7Z" />
+        </svg>
+      );
+    case "bookmark":
+      return (
+        <svg {...props}>
+          <path d="M7 4h10a1 1 0 0 1 1 1v16l-6-3-6 3V5a1 1 0 0 1 1-1Z" />
+        </svg>
+      );
+    case "mic":
+      return (
+        <svg {...props}>
+          <rect x="9" y="3" width="6" height="10" rx="3" />
+          <path d="M5 11a7 7 0 0 0 14 0" />
+          <path d="M12 18v3" />
+          <path d="M8 21h8" />
+        </svg>
+      );
+    case "trend":
+      return (
+        <svg {...props}>
+          <path d="m4 16 6-6 4 4 6-7" />
+          <path d="M16 7h4v4" />
+        </svg>
+      );
+    case "search":
+      return (
+        <svg {...props}>
+          <circle cx="11" cy="11" r="7" />
+          <path d="M20 20l-3.5-3.5" />
+        </svg>
+      );
+    case "filter":
+      return (
+        <svg {...props}>
+          <path d="M4 5h16l-6 7v5l-4 2v-7Z" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+};
+
+const SkeletonLine = ({ className }: { className?: string }) => (
+  <div
+    className={cn(
+      "h-3 w-full rounded-full bg-slate-200/80 animate-pulse",
+      className
+    )}
+  />
+);
+
 export default function App() {
+  const [activePage, setActivePage] = useState<NavId>("dashboard");
+  const [trainingTab, setTrainingTab] = useState<TrainingTab>("assistant");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [form, setForm] = useState<FormState>({
     industry: "",
     scale: "",
@@ -156,6 +434,7 @@ export default function App() {
   const [notesLoading, setNotesLoading] = useState(false);
   const [notesError, setNotesError] = useState("");
   const [notesVisible, setNotesVisible] = useState(false);
+  const [recordingActive, setRecordingActive] = useState(false);
   const [drillActive, setDrillActive] = useState(false);
   const [drillQuestions, setDrillQuestions] = useState<string[]>([]);
   const [drillIndex, setDrillIndex] = useState(0);
@@ -169,6 +448,16 @@ export default function App() {
     "ai" | "default" | ""
   >("");
   const [drillStreamText, setDrillStreamText] = useState("");
+  const [savedScripts, setSavedScripts] = useState<HistoryItem[]>([]);
+  const [activeCaseId, setActiveCaseId] = useState(
+    caseLibrary[0]?.id ?? ""
+  );
+  const [caseIndustry, setCaseIndustry] = useState("全部");
+  const [caseDistrict, setCaseDistrict] = useState("全部");
+  const [toolboxQuery, setToolboxQuery] = useState("");
+  const [toolboxCategory, setToolboxCategory] = useState("全部");
+  const [favoriteTemplates, setFavoriteTemplates] = useState<string[]>([]);
+  const [toolboxNotice, setToolboxNotice] = useState("");
   const historyRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const drillChatRef = useRef<HTMLDivElement>(null);
@@ -196,6 +485,100 @@ export default function App() {
     return { filled, total: required.length, percent };
   }, [form]);
 
+  const pageMeta: Record<NavId, { title: string; description: string }> = {
+    dashboard: {
+      title: "首页仪表盘",
+      description: "快速进入训练、查看进度与案例推荐。"
+    },
+    training: {
+      title: "训练中心",
+      description: "模拟对话并获得实时指导，提升成交能力。"
+    },
+    cases: {
+      title: "案例库",
+      description: "按行业与商圈筛选高质量成交案例。"
+    },
+    toolbox: {
+      title: "话术工具箱",
+      description: "一键调用模板话术，构建个人话术库。"
+    },
+    profile: {
+      title: "个人中心",
+      description: "掌握训练成果与成长路线。"
+    }
+  };
+
+  const caseIndustries = useMemo(
+    () => ["全部", ...Array.from(new Set(caseLibrary.map((item) => item.industry)))],
+    []
+  );
+  const caseDistricts = useMemo(
+    () => ["全部", ...Array.from(new Set(caseLibrary.map((item) => item.district)))],
+    []
+  );
+  const filteredCases = useMemo(() => {
+    return caseLibrary.filter((item) => {
+      const industryMatch =
+        caseIndustry === "全部" || item.industry === caseIndustry;
+      const districtMatch =
+        caseDistrict === "全部" || item.district === caseDistrict;
+      return industryMatch && districtMatch;
+    });
+  }, [caseIndustry, caseDistrict]);
+  const activeCase = useMemo(() => {
+    return (
+      caseLibrary.find((item) => item.id === activeCaseId) ||
+      filteredCases[0] ||
+      caseLibrary[0]
+    );
+  }, [activeCaseId, filteredCases]);
+
+  const toolboxCategories = useMemo(
+    () => [
+      "全部",
+      ...Array.from(new Set(toolboxTemplates.map((item) => item.category)))
+    ],
+    []
+  );
+  const visibleTemplates = useMemo(() => {
+    return toolboxTemplates.filter((item) => {
+      const categoryMatch =
+        toolboxCategory === "全部" || item.category === toolboxCategory;
+      const queryMatch =
+        !toolboxQuery.trim() ||
+        item.title.includes(toolboxQuery.trim()) ||
+        item.content.includes(toolboxQuery.trim());
+      return categoryMatch && queryMatch;
+    });
+  }, [toolboxCategory, toolboxQuery]);
+
+  const scoredItems = useMemo(
+    () => drillItems.filter((item) => typeof item.score === "number"),
+    [drillItems]
+  );
+  const averageScore = useMemo(() => {
+    if (scoredItems.length === 0) return 0;
+    const sum = scoredItems.reduce((acc, item) => acc + (item.score ?? 0), 0);
+    return Math.round(sum / scoredItems.length);
+  }, [scoredItems]);
+
+  const guidanceTips = useMemo(() => {
+    const tips = [
+      "结构建议：价值-案例-推进动作三段式。",
+      "用 1 句交代收益，再给 1 句下一步动作。"
+    ];
+    if (form.focusAreas.includes("投放成本")) {
+      tips.push("强调预算可控与分阶段投放，降低试错成本。");
+    }
+    if (form.focusAreas.includes("案例背书")) {
+      tips.push("补充附近商家案例，增强信任感。");
+    }
+    if (form.focusAreas.includes("流量增长")) {
+      tips.push("明确预期流量区间与起量节奏。");
+    }
+    return tips.slice(0, 4);
+  }, [form.focusAreas]);
+
   useEffect(() => {
     if (!historyRef.current) return;
     historyRef.current.scrollTo({
@@ -218,10 +601,27 @@ export default function App() {
   }, [form.industry, form.productId]);
 
   useEffect(() => {
+    if (!toolboxNotice) return;
+    const timer = setTimeout(() => setToolboxNotice(""), 1800);
+    return () => clearTimeout(timer);
+  }, [toolboxNotice]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [activePage]);
+
+  useEffect(() => {
     if (!successMessage) return;
     const timer = setTimeout(() => setSuccessMessage(""), 2000);
     return () => clearTimeout(timer);
   }, [successMessage]);
+
+  useEffect(() => {
+    if (filteredCases.length === 0) return;
+    if (!filteredCases.some((item) => item.id === activeCaseId)) {
+      setActiveCaseId(filteredCases[0].id);
+    }
+  }, [filteredCases, activeCaseId]);
 
   const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -561,6 +961,62 @@ export default function App() {
     }
   };
 
+  const handleSaveScript = () => {
+    if (!assistantSuggestion) return;
+    const record: HistoryItem = {
+      id: `saved-${Date.now()}`,
+      createdAt: new Date().toLocaleString("zh-CN"),
+      snapshot: form,
+      question: merchantQuestion.trim(),
+      suggestion: assistantSuggestion
+    };
+    setSavedScripts((prev) => [record, ...prev].slice(0, 8));
+    setSuccessMessage("已保存到话术库");
+  };
+
+  const handleTemplateCopy = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setToolboxNotice("模板已复制");
+    } catch (error) {
+      setToolboxNotice("复制失败");
+    }
+  };
+
+  const handleCaseCopy = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setToolboxNotice("案例话术已复制");
+    } catch (error) {
+      setToolboxNotice("复制失败");
+    }
+  };
+
+  const toggleFavoriteTemplate = (id: string) => {
+    setFavoriteTemplates((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const goToTraining = (tab: TrainingTab = "assistant") => {
+    setActivePage("training");
+    setTrainingTab(tab);
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  };
+
+  const handleSampleStart = (sample: (typeof sampleProfiles)[number]) => {
+    applySampleProfile(sample);
+    setActivePage("training");
+    setTrainingTab("assistant");
+    setSidebarOpen(true);
+  };
+
+  const toggleRecording = () => {
+    setRecordingActive((prev) => !prev);
+  };
+
   const runGeneration = async () => {
     setIsSubmitting(true);
     setAssistantError("");
@@ -633,689 +1089,1614 @@ export default function App() {
     ? drillItems.slice(0, drillIndex + 1)
     : drillItems;
 
-  return (
-    <main className="mx-auto max-w-6xl px-6 py-12">
-      <header className="flex flex-col gap-3">
-        <span className="inline-flex w-fit items-center rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">
-          PitchPerfect · 新人销售话术助手
-        </span>
-        <h1 className="text-3xl font-semibold text-slate-900 font-['Rubik']">
-          更快完成商户沟通准备
-        </h1>
-        <p className="text-base text-slate-600">
-          通过画像 + 产品 + 疑义三步，快速生成可复制的话术建议。
-        </p>
-      </header>
+  const recentHistory = useMemo(
+    () => history.slice(-3).reverse(),
+    [history]
+  );
 
-      <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900 font-['Rubik']">
-          三方对话流程
-        </h2>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          {flowSteps.map((step) => (
-            <div
-              key={step.role}
-              className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4"
+  const merchantSummary = [
+    { label: "行业", value: form.industry || "待补充" },
+    { label: "规模", value: form.scale || "待补充" },
+    { label: "商圈", value: form.businessDistrict || "待补充" },
+    {
+      label: "产品",
+      value: selectedProduct?.name || form.productId || "待补充"
+    }
+  ];
+
+  const assistantPanel = (
+    <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+      <div className="space-y-6">
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-500">
+                商户疑义
+              </p>
+              <p className="mt-1 text-sm text-slate-600">
+                输入具体疑义或直接选取常见问题。
+              </p>
+            </div>
+            <span className="text-xs text-slate-400">
+              Ctrl/Command + Enter 生成
+            </span>
+          </div>
+          <div className="mt-4 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="merchant-question">商户提问</Label>
+              <Textarea
+                id="merchant-question"
+                rows={4}
+                placeholder="例如：担心投放后成本太高，具体ROI能看到吗？"
+                value={merchantQuestion}
+                onChange={(event) => setMerchantQuestion(event.target.value)}
+                onKeyDown={handleQuestionKeyDown}
+              />
+              {!merchantQuestion.trim() && (
+                <p className="text-xs text-slate-400">
+                  当前为空，将默认使用常见疑义作为输入。
+                </p>
+              )}
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-slate-700">
+                  常见疑义
+                </p>
+                {selectedProduct && (
+                  <span className="text-xs text-slate-400">
+                    {selectedProduct.name}
+                  </span>
+                )}
+              </div>
+              {selectedProduct ? (
+                <div className="mt-3 space-y-3">
+                  <p className="text-xs text-slate-500">
+                    {selectedProduct.summary}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedProduct.questions.map((question) => (
+                      <button
+                        key={question}
+                        type="button"
+                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 transition hover:border-blue-200"
+                        onClick={() => setMerchantQuestion(question)}
+                      >
+                        {question}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-slate-500">暂无可用产品信息。</p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 font-['Rubik']">
+                话术建议
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                输出结构化话术，支持一键复制与收藏。
+              </p>
+            </div>
+            {assistantSuggestion && !assistantError && (
+              <div className="flex items-center gap-2">
+                {copyMessage && (
+                  <span className="text-xs text-slate-500">
+                    {copyMessage}
+                  </span>
+                )}
+                <Button
+                  type="button"
+                  className="bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  onClick={handleSaveScript}
+                  disabled={isSubmitting}
+                >
+                  保存话术
+                </Button>
+                <Button
+                  type="button"
+                  className="bg-blue-600 hover:bg-blue-500"
+                  onClick={handleCopy}
+                  disabled={isSubmitting}
+                >
+                  复制话术
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {assistantError && (
+            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+              <p>{assistantError}</p>
+              <Button
+                type="button"
+                className="mt-3 bg-red-600 hover:bg-red-500"
+                onClick={runGeneration}
+                disabled={isSubmitting}
+              >
+                重新生成
+              </Button>
+            </div>
+          )}
+
+          {!assistantError && isSubmitting && (
+            <div className="mt-4 space-y-3">
+              <SkeletonLine className="w-24" />
+              <SkeletonLine />
+              <SkeletonLine className="w-5/6" />
+              <SkeletonLine className="w-1/2" />
+            </div>
+          )}
+
+          {!assistantError && !isSubmitting && assistantSuggestion && (
+            <div className="mt-4 grid gap-4 text-sm text-slate-700">
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase text-slate-500">
+                  核心价值
+                </p>
+                <p className="mt-2">
+                  {renderValue(assistantSuggestion.coreValue)}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase text-slate-500">
+                  应对疑义
+                </p>
+                <p className="mt-2">
+                  {renderValue(assistantSuggestion.objectionResponse)}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase text-slate-500">
+                  案例类比
+                </p>
+                <p className="mt-2">
+                  {renderValue(assistantSuggestion.caseAnalogy)}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase text-slate-500">
+                  推进动作
+                </p>
+                <p className="mt-2">
+                  {renderValue(assistantSuggestion.nextStep)}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!assistantError && !isSubmitting && !assistantSuggestion && (
+            <p className="mt-4 text-sm text-slate-500">
+              填写商户信息并提交后，这里会展示生成的话术建议。
+            </p>
+          )}
+        </section>
+      </div>
+
+      <div className="space-y-6">
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase text-slate-500">
+            实时指导工具
+          </p>
+          <p className="mt-2 text-sm text-slate-600">
+            根据关注点输出即时指导，帮助你快速调整话术结构。
+          </p>
+          <div className="mt-4 space-y-3">
+            {guidanceTips.map((tip) => (
+              <div
+                key={tip}
+                className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-600"
+              >
+                <span className="mt-2 h-2 w-2 rounded-full bg-blue-500" />
+                <span>{tip}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-500">
+                推荐案例
+              </p>
+              <p className="mt-2 text-sm text-slate-600">
+                快速查看同类型门店的成功打法。
+              </p>
+            </div>
+            <button
+              type="button"
+              className="text-xs font-semibold text-blue-600 transition hover:text-blue-500"
+              onClick={() => setActivePage("cases")}
             >
-              <p className="text-sm font-semibold text-slate-800">{step.role}</p>
-              <p className="mt-2 text-sm text-slate-600">{step.goal}</p>
+              查看更多
+            </button>
+          </div>
+          {activeCase ? (
+            <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-700">
+              <p className="font-semibold">{activeCase.title}</p>
+              <p className="mt-2 text-slate-600">{activeCase.summary}</p>
+              <p className="mt-2 text-xs text-slate-500">
+                {activeCase.result}
+              </p>
+              <div className="mt-3 flex items-center justify-between">
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                  {activeCase.industry}
+                </span>
+                <button
+                  type="button"
+                  className="text-xs text-blue-600 transition hover:text-blue-500"
+                  onClick={() => handleCaseCopy(activeCase.script)}
+                >
+                  复制案例话术
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-slate-500">暂无推荐案例。</p>
+          )}
+        </section>
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="text-base font-semibold text-slate-900 font-['Rubik']">
+            最近话术记录
+          </h3>
+          {history.length === 0 ? (
+            <p className="mt-4 text-sm text-slate-500">暂无生成记录。</p>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {recentHistory.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm transition hover:border-blue-100"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                    <span>{item.createdAt}</span>
+                    <button
+                      type="button"
+                      className="text-blue-600 transition hover:text-blue-500"
+                      onClick={() => applyHistory(item)}
+                    >
+                      回填
+                    </button>
+                  </div>
+                  <p className="mt-2 text-slate-700">
+                    核心价值：{renderValue(item.suggestion.coreValue)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+
+  const drillPanel = (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900 font-['Rubik']">
+            销售演练系统
+          </h3>
+          <p className="mt-1 text-sm text-slate-600">
+            商户连续提问，你逐题回答并获取评分，完成后生成报告。
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+          {drillItems.length > 0 && (
+            <span>
+              进度 {Math.min(drillIndex + 1, drillItems.length)}/
+              {drillItems.length}
+            </span>
+          )}
+          {drillQuestionSource && (
+            <span>
+              问题来源：{drillQuestionSource === "ai" ? "AI" : "默认"}
+            </span>
+          )}
+          <Button
+            type="button"
+            onClick={startDrill}
+            disabled={drillLoading || drillQuestionsLoading}
+          >
+            {drillQuestionsLoading
+              ? "生成中..."
+              : drillActive
+                ? "重新开始"
+                : "开始演练"}
+          </Button>
+        </div>
+      </div>
+
+      {drillError && (
+        <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+          {drillError}
+        </div>
+      )}
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-center justify-between text-xs text-slate-500">
+            <span>对话流</span>
+            {drillItems.length > 0 && (
+              <span>
+                当前问题 {Math.min(drillIndex + 1, drillItems.length)}/
+                {drillItems.length}
+              </span>
+            )}
+          </div>
+          <div
+            ref={drillChatRef}
+            className="mt-4 max-h-[420px] space-y-4 overflow-y-auto pr-2"
+          >
+            {visibleDrillItems.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                点击“开始演练”生成对话内容。
+              </p>
+            ) : (
+              visibleDrillItems.map((item, index) => (
+                <div key={`${item.question}-${index}`} className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1 h-8 w-8 rounded-full bg-slate-900 text-center text-xs font-semibold leading-8 text-white">
+                      商
+                    </div>
+                    <div className="max-w-[80%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                      <p>{item.question}</p>
+                      {item.kind === "followup" && (
+                        <span className="mt-2 inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">
+                          补充追问
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {item.answer && (
+                    <div className="flex items-start justify-end gap-3">
+                      <div className="max-w-[80%] rounded-2xl bg-blue-600 px-4 py-3 text-sm text-white shadow-sm">
+                        <p className="text-xs text-blue-100">你的回答</p>
+                        <p className="mt-2 whitespace-pre-line text-white">
+                          {item.answer}
+                        </p>
+                        {item.score !== undefined && (
+                          <p className="mt-2 text-xs text-blue-100">
+                            评分 {item.score} · {item.highlight}
+                          </p>
+                        )}
+                      </div>
+                      <div className="mt-1 h-8 w-8 rounded-full bg-emerald-500 text-center text-xs font-semibold leading-8 text-white">
+                        我
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+          <div className="mt-4 space-y-2">
+            <Label htmlFor="drill-answer">你的回答</Label>
+            <Textarea
+              id="drill-answer"
+              rows={3}
+              className="bg-white"
+              placeholder="用 2-3 句回应商户疑义，并给出推进动作..."
+              value={drillAnswer}
+              onChange={(event) => setDrillAnswer(event.target.value)}
+              disabled={!drillActive}
+            />
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <span className="text-xs text-slate-400">
+                建议回答包括价值、案例与下一步动作
+              </span>
+              <Button
+                type="button"
+                onClick={submitDrillAnswer}
+                disabled={!drillActive || drillLoading}
+              >
+                {drillLoading ? "评分中..." : "提交并评分"}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase text-slate-500">
+                录音与评估
+              </p>
+              <button
+                type="button"
+                className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition hover:border-blue-200"
+                onClick={toggleRecording}
+              >
+                {recordingActive ? "停止录音" : "开始录音"}
+              </button>
+            </div>
+            <p className="mt-2 text-sm text-slate-600">
+              录音功能支持复盘语速与表达逻辑，便于评估表现。
+            </p>
+            <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs text-slate-500">
+              <span
+                className={cn(
+                  "h-2 w-2 rounded-full",
+                  recordingActive ? "bg-emerald-500" : "bg-slate-300"
+                )}
+              />
+              {recordingActive ? "录音中..." : "待开始"}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase text-slate-500">
+              评分记录
+            </p>
+            {drillLoading && (
+              <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3 text-sm">
+                <p className="text-xs text-slate-400">AI 实时反馈</p>
+                <p className="mt-2 whitespace-pre-line text-slate-700">
+                  {drillStreamText || "生成中..."}
+                </p>
+              </div>
+            )}
+            {scoredItems.length === 0 ? (
+              <p className="mt-2 text-sm text-slate-500">暂无评分记录。</p>
+            ) : (
+              <div className="mt-3 space-y-3">
+                {scoredItems.map((item) => (
+                  <div
+                    key={item.question}
+                    className="rounded-xl border border-slate-200 bg-white p-3 text-sm"
+                  >
+                    <p className="text-xs text-slate-400">
+                      得分 {item.score}
+                      {item.kind === "followup" && " · 追问"}
+                    </p>
+                    <p className="mt-1 text-slate-700">{item.question}</p>
+                    <p className="mt-2 text-slate-600">
+                      亮点：{item.highlight}
+                    </p>
+                    <p className="mt-1 text-slate-600">
+                      建议：{item.improve}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase text-slate-500">
+              演练报告
+            </p>
+            {drillReport ? (
+              <div className="mt-3 space-y-3 text-sm text-slate-700">
+                <p>{drillReport.summary}</p>
+                <div>
+                  <p className="text-xs font-semibold text-slate-500">亮点</p>
+                  {drillReport.strengths.length === 0 ? (
+                    <p className="mt-1 text-slate-500">暂无</p>
+                  ) : (
+                    <ul className="mt-1 list-disc space-y-1 pl-5">
+                      {drillReport.strengths.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-500">
+                    改进建议
+                  </p>
+                  {drillReport.improvements.length === 0 ? (
+                    <p className="mt-1 text-slate-500">暂无</p>
+                  ) : (
+                    <ul className="mt-1 list-disc space-y-1 pl-5">
+                      {drillReport.improvements.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-500">
+                    下一步
+                  </p>
+                  {drillReport.nextSteps.length === 0 ? (
+                    <p className="mt-1 text-slate-500">暂无</p>
+                  ) : (
+                    <ul className="mt-1 list-disc space-y-1 pl-5">
+                      {drillReport.nextSteps.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-slate-500">
+                完成所有问题后生成报告。
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+
+  const trainingContent = (
+    <div className="space-y-6">
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-blue-600">
+              训练中心
+            </p>
+            <h2 className="mt-2 text-xl font-semibold text-slate-900 font-['Rubik']">
+              选择训练模式
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              话术生成适合快速准备，销售演练适合模拟真实对话。
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {trainingTabs.map((tab) => {
+              const active = trainingTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  className={cn(
+                    "rounded-full border px-4 py-2 text-sm font-medium transition",
+                    active
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"
+                  )}
+                  onClick={() => setTrainingTab(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+        <aside className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-500">
+                商户信息侧边栏
+              </p>
+              <p className="mt-1 text-sm text-slate-600">
+                可折叠，随时补充画像信息。
+              </p>
+            </div>
+            <button
+              type="button"
+              className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition hover:border-blue-200"
+              onClick={() => setSidebarOpen((prev) => !prev)}
+            >
+              {sidebarOpen ? "收起" : "展开"}
+            </button>
+          </div>
+
+          {sidebarOpen ? (
+            <section
+              ref={formRef}
+              className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold text-slate-900 font-['Rubik']">
+                  商户画像表单
+                </h3>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span>
+                    完成度 {completion.filled}/{completion.total}
+                  </span>
+                  <span>{completion.percent}%</span>
+                </div>
+              </div>
+              <div className="mt-3 h-2 w-full rounded-full bg-slate-100">
+                <div
+                  className="h-2 rounded-full bg-blue-600 transition-all"
+                  style={{ width: `${completion.percent}%` }}
+                />
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <span className="text-xs text-slate-500">示例画像：</span>
+                {sampleProfiles.map((sample) => (
+                  <button
+                    key={sample.id}
+                    type="button"
+                    className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-blue-200"
+                    onClick={() => applySampleProfile(sample)}
+                  >
+                    {sample.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="ml-auto rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500 transition hover:border-blue-200"
+                  onClick={resetForm}
+                >
+                  清空表单
+                </button>
+              </div>
+
+              {errorSummary.length > 0 && (
+                <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                  <p className="font-semibold">请补充以下信息：</p>
+                  <ul className="mt-2 list-disc pl-5">
+                    {errorSummary.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
+                <div className="space-y-2">
+                  <Label htmlFor="industry">行业</Label>
+                  <Input
+                    id="industry"
+                    placeholder="例如：咖啡、轻食、健身"
+                    value={form.industry}
+                    onChange={(event) =>
+                      handleChange("industry", event.target.value)
+                    }
+                  />
+                  {errors.industry && (
+                    <p className="text-xs text-red-500">{errors.industry}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>规模</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {scaleOptions.map((option) => {
+                      const active = form.scale === option;
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          className={cn(
+                            "rounded-xl border px-3 py-2 text-sm font-medium transition",
+                            active
+                              ? "border-blue-600 bg-blue-600 text-white"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"
+                          )}
+                          onClick={() => setScale(option)}
+                        >
+                          {option}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {errors.scale && (
+                    <p className="text-xs text-red-500">{errors.scale}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="district">商圈</Label>
+                  <Input
+                    id="district"
+                    placeholder="例如：中山路 / 世纪广场"
+                    value={form.businessDistrict}
+                    onChange={(event) =>
+                      handleChange("businessDistrict", event.target.value)
+                    }
+                  />
+                  {errors.businessDistrict && (
+                    <p className="text-xs text-red-500">
+                      {errors.businessDistrict}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>关注点</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {focusOptions.map((option) => {
+                      const active = form.focusAreas.includes(option);
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          className={cn(
+                            "rounded-full border px-3 py-1 text-xs font-medium transition",
+                            active
+                              ? "border-blue-600 bg-blue-600 text-white"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"
+                          )}
+                          onClick={() => toggleFocus(option)}
+                        >
+                          {option}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {errors.focusAreas && (
+                    <p className="text-xs text-red-500">{errors.focusAreas}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>意向产品</Label>
+                  <div role="radiogroup" className="grid gap-3">
+                    {productCatalog.map((product) => {
+                      const active = form.productId === product.id;
+                      return (
+                        <button
+                          key={product.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          className={cn(
+                            "rounded-xl border px-4 py-3 text-left text-sm transition",
+                            active
+                              ? "border-blue-600 bg-blue-600 text-white"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"
+                          )}
+                          onClick={() => setProduct(product.id)}
+                        >
+                          <p className="font-semibold">{product.name}</p>
+                          <p className="mt-1 text-xs opacity-80">
+                            {product.summary}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {errors.productId && (
+                    <p className="text-xs text-red-500">{errors.productId}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="notes">补充说明</Label>
+                  <Textarea
+                    id="notes"
+                    rows={3}
+                    placeholder="记录商户特别关注的点或已有痛点..."
+                    value={form.notes}
+                    onChange={(event) => handleChange("notes", event.target.value)}
+                    onFocus={handleNotesFocus}
+                    onBlur={handleNotesBlur}
+                  />
+                  <div className="flex items-center justify-end text-xs text-slate-500">
+                    <button
+                      type="button"
+                      className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-500 transition hover:border-blue-200"
+                      onClick={fetchNotesSuggestions}
+                      disabled={notesLoading}
+                    >
+                      {notesLoading ? "生成中..." : "重新生成"}
+                    </button>
+                  </div>
+                  {notesError && (
+                    <p className="text-xs text-red-500">{notesError}</p>
+                  )}
+                  {notesVisible && notesSuggestions.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {notesSuggestions.map((item) => (
+                        <button
+                          key={item}
+                          type="button"
+                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 transition hover:border-blue-200"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => applyNoteSuggestion(item)}
+                        >
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {submitError && (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                    {submitError}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? "生成中..." : "生成话术建议"}
+                  </Button>
+                  {successMessage && (
+                    <span className="text-sm text-emerald-600">
+                      {successMessage}
+                    </span>
+                  )}
+                  <span className="text-xs text-slate-400">
+                    提示：在商户提问区按 Ctrl/Command + Enter 可快速生成
+                  </span>
+                </div>
+              </form>
+            </section>
+          ) : (
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-sm font-semibold text-slate-900">
+                商户信息已收起
+              </p>
+              <p className="mt-2 text-sm text-slate-600">
+                当前已填写 {completion.filled}/{completion.total} 项信息。
+              </p>
+              <div className="mt-4 grid gap-2 text-xs text-slate-500">
+                {merchantSummary.map((item) => (
+                  <div
+                    key={item.label}
+                    className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2"
+                  >
+                    <span>{item.label}</span>
+                    <span className="font-medium text-slate-700">
+                      {item.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <Button
+                type="button"
+                className="mt-4 w-full bg-blue-600 hover:bg-blue-500"
+                onClick={() => setSidebarOpen(true)}
+              >
+                展开并编辑
+              </Button>
+            </div>
+          )}
+        </aside>
+
+        <div className="space-y-6">
+          {trainingTab === "assistant" ? assistantPanel : drillPanel}
+        </div>
+      </div>
+    </div>
+  );
+
+  const casesContent = (
+    <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-slate-500">
+              智能推荐案例
+            </p>
+            <p className="mt-1 text-sm text-slate-600">
+              按行业与商圈筛选，快速找到可复用打法。
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            {toolboxNotice && <span>{toolboxNotice}</span>}
+          </div>
+        </div>
+        <div className="mt-4 space-y-3">
+          <div>
+            <p className="text-xs font-semibold text-slate-500">行业</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {caseIndustries.map((industry) => {
+                const active = caseIndustry === industry;
+                return (
+                  <button
+                    key={industry}
+                    type="button"
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs font-medium transition",
+                      active
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"
+                    )}
+                    onClick={() => setCaseIndustry(industry)}
+                  >
+                    {industry}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-slate-500">商圈</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {caseDistricts.map((district) => {
+                const active = caseDistrict === district;
+                return (
+                  <button
+                    key={district}
+                    type="button"
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs font-medium transition",
+                      active
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"
+                    )}
+                    onClick={() => setCaseDistrict(district)}
+                  >
+                    {district}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 space-y-3">
+          {filteredCases.length === 0 ? (
+            <p className="text-sm text-slate-500">暂无匹配案例。</p>
+          ) : (
+            filteredCases.map((item) => {
+              const active = activeCase?.id === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={cn(
+                    "w-full rounded-2xl border px-4 py-3 text-left text-sm transition",
+                    active
+                      ? "border-blue-600 bg-blue-50"
+                      : "border-slate-200 bg-white hover:border-blue-200"
+                  )}
+                  onClick={() => setActiveCaseId(item.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold text-slate-800">{item.title}</p>
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
+                      推荐
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">
+                    {item.industry} · {item.district}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-600">{item.summary}</p>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        {activeCase ? (
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-500">
+                案例详情
+              </p>
+              <h3 className="mt-2 text-xl font-semibold text-slate-900 font-['Rubik']">
+                {activeCase.title}
+              </h3>
+              <p className="mt-2 text-sm text-slate-600">
+                {activeCase.summary}
+              </p>
+              <p className="mt-2 text-xs text-slate-500">
+                {activeCase.result}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <p className="text-xs font-semibold text-slate-500">关键打法</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
+                {activeCase.highlights.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <p className="text-xs font-semibold text-slate-500">推荐话术</p>
+              <p className="mt-2 text-sm text-slate-700">{activeCase.script}</p>
+              <div className="mt-4 flex items-center justify-between">
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                  {activeCase.industry}
+                </span>
+                <Button
+                  type="button"
+                  className="bg-blue-600 hover:bg-blue-500"
+                  onClick={() => handleCaseCopy(activeCase.script)}
+                >
+                  复制话术
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">请选择一个案例查看详情。</p>
+        )}
+      </section>
+    </div>
+  );
+
+  const toolboxContent = (
+    <div className="space-y-6">
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-slate-500">
+              话术工具箱
+            </p>
+            <p className="mt-1 text-sm text-slate-600">
+              搜索、收藏并一键调用模板话术。
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Icon
+                name="search"
+                className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400"
+              />
+              <Input
+                className="pl-9"
+                placeholder="搜索话术关键词"
+                value={toolboxQuery}
+                onChange={(event) => setToolboxQuery(event.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {toolboxCategories.map((category) => {
+            const active = toolboxCategory === category;
+            return (
+              <button
+                key={category}
+                type="button"
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs font-medium transition",
+                  active
+                    ? "border-blue-600 bg-blue-600 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"
+                )}
+                onClick={() => setToolboxCategory(category)}
+              >
+                {category}
+              </button>
+            );
+          })}
+        </div>
+        {toolboxNotice && (
+          <p className="mt-3 text-xs text-emerald-600">{toolboxNotice}</p>
+        )}
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          {visibleTemplates.map((item) => {
+            const favorite = favoriteTemplates.includes(item.id);
+            return (
+              <div
+                key={item.id}
+                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                    {item.category}
+                  </span>
+                  <button
+                    type="button"
+                    className={cn(
+                      "text-xs font-semibold transition",
+                      favorite ? "text-emerald-600" : "text-slate-500"
+                    )}
+                    onClick={() => toggleFavoriteTemplate(item.id)}
+                  >
+                    {favorite ? "已收藏" : "收藏"}
+                  </button>
+                </div>
+                <p className="mt-3 font-semibold text-slate-800">
+                  {item.title}
+                </p>
+                <p className="mt-2 text-sm text-slate-600">{item.content}</p>
+                <div className="mt-4 flex items-center justify-between">
+                  <Button
+                    type="button"
+                    className="bg-blue-600 hover:bg-blue-500"
+                    onClick={() => handleTemplateCopy(item.content)}
+                  >
+                    一键使用
+                  </Button>
+                  <button
+                    type="button"
+                    className="text-xs text-slate-500 transition hover:text-blue-600"
+                    onClick={() => handleTemplateCopy(item.content)}
+                  >
+                    复制内容
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-slate-500">
+              话术收藏夹
+            </p>
+            <p className="mt-1 text-sm text-slate-600">
+              你收藏的高分话术将展示在这里。
+            </p>
+          </div>
+          <span className="text-xs text-slate-500">
+            已收藏 {savedScripts.length} 条
+          </span>
+        </div>
+        {savedScripts.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-500">
+            暂无收藏话术，可在话术建议中点击“保存话术”。
+          </p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {savedScripts.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm"
+              >
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <span>{item.createdAt}</span>
+                  <button
+                    type="button"
+                    className="text-blue-600 transition hover:text-blue-500"
+                    onClick={() =>
+                      handleTemplateCopy(buildCopyText(item.suggestion))
+                    }
+                  >
+                    复制
+                  </button>
+                </div>
+                <p className="mt-2 text-slate-700">
+                  {renderValue(item.suggestion.coreValue)}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+
+  const profileContent = (
+    <div className="space-y-6">
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-slate-500">
+              个人中心
+            </p>
+            <p className="mt-1 text-sm text-slate-600">
+              查看训练数据与成长进度。
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-blue-700">
+              平均得分 {averageScore}
+            </span>
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
+              收藏 {savedScripts.length}
+            </span>
+          </div>
+        </div>
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs text-slate-500">累计话术生成</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">
+              {history.length}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs text-slate-500">演练评分记录</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">
+              {scoredItems.length}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs text-slate-500">平均得分</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">
+              {averageScore}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p className="text-xs font-semibold uppercase text-slate-500">
+          成就系统
+        </p>
+        <div className="mt-4 space-y-4">
+          {achievementTracks.map((track) => (
+            <div key={track.id} className="rounded-2xl bg-slate-50 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-slate-800">{track.title}</p>
+                  <p className="text-xs text-slate-500">
+                    {track.description}
+                  </p>
+                </div>
+                <span className="text-xs text-slate-500">
+                  {track.progress}%
+                </span>
+              </div>
+              <div className="mt-3 h-2 w-full rounded-full bg-slate-200">
+                <div
+                  className="h-2 rounded-full bg-emerald-500"
+                  style={{ width: `${track.progress}%` }}
+                />
+              </div>
             </div>
           ))}
         </div>
       </section>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[1.3fr_1fr]">
-        <section
-          ref={formRef}
-          className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900 font-['Rubik']">
-              商户画像表单
-            </h2>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <span>
-                完成度 {completion.filled}/{completion.total}
-              </span>
-              <span>{completion.percent}%</span>
-            </div>
-          </div>
-          <div className="mt-3 h-2 w-full rounded-full bg-slate-100">
-            <div
-              className="h-2 rounded-full bg-slate-900 transition-all"
-              style={{ width: `${completion.percent}%` }}
-            />
-          </div>
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p className="text-xs font-semibold uppercase text-slate-500">
+          个性化设置
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            <span>训练提醒通知</span>
+            <input type="checkbox" defaultChecked />
+          </label>
+          <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            <span>演练完成后自动生成报告</span>
+            <input type="checkbox" defaultChecked />
+          </label>
+          <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            <span>开启 AI 指导提示</span>
+            <input type="checkbox" defaultChecked />
+          </label>
+          <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            <span>保存对话历史</span>
+            <input type="checkbox" defaultChecked />
+          </label>
+        </div>
+      </section>
+    </div>
+  );
 
-          <div className="mt-5 flex flex-wrap items-center gap-2">
-            <span className="text-xs text-slate-500">示例画像：</span>
-            {sampleProfiles.map((sample) => (
-              <button
-                key={sample.id}
-                type="button"
-                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-slate-400"
-                onClick={() => applySampleProfile(sample)}
-              >
-                {sample.label}
-              </button>
-            ))}
-            <button
-              type="button"
-              className="ml-auto rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500 transition hover:border-slate-400"
-              onClick={resetForm}
-            >
-              清空表单
-            </button>
-          </div>
-
-          {errorSummary.length > 0 && (
-            <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-              <p className="font-semibold">请补充以下信息：</p>
-              <ul className="mt-2 list-disc pl-5">
-                {errorSummary.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor="industry">行业</Label>
-              <Input
-                id="industry"
-                placeholder="例如：咖啡、轻食、健身"
-                value={form.industry}
-                onChange={(event) => handleChange("industry", event.target.value)}
-              />
-              {errors.industry && (
-                <p className="text-xs text-red-500">{errors.industry}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>规模</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {scaleOptions.map((option) => {
-                  const active = form.scale === option;
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
-                        active
-                          ? "border-slate-900 bg-slate-900 text-white"
-                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
-                      }`}
-                      onClick={() => setScale(option)}
-                    >
-                      {option}
-                    </button>
-                  );
-                })}
-              </div>
-              {errors.scale && (
-                <p className="text-xs text-red-500">{errors.scale}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="district">商圈</Label>
-              <Input
-                id="district"
-                placeholder="例如：中山路 / 世纪广场"
-                value={form.businessDistrict}
-                onChange={(event) =>
-                  handleChange("businessDistrict", event.target.value)
-                }
-              />
-              {errors.businessDistrict && (
-                <p className="text-xs text-red-500">
-                  {errors.businessDistrict}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>关注点</Label>
-              <div className="flex flex-wrap gap-2">
-                {focusOptions.map((option) => {
-                  const active = form.focusAreas.includes(option);
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                        active
-                          ? "border-slate-900 bg-slate-900 text-white"
-                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
-                      }`}
-                      onClick={() => toggleFocus(option)}
-                    >
-                      {option}
-                    </button>
-                  );
-                })}
-              </div>
-              {errors.focusAreas && (
-                <p className="text-xs text-red-500">{errors.focusAreas}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>意向产品</Label>
-              <div
-                role="radiogroup"
-                className="grid gap-3 md:grid-cols-3"
-              >
-                {productCatalog.map((product) => {
-                  const active = form.productId === product.id;
-                  return (
-                    <button
-                      key={product.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
-                        active
-                          ? "border-slate-900 bg-slate-900 text-white"
-                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
-                      }`}
-                      onClick={() => setProduct(product.id)}
-                    >
-                      <p className="font-semibold">{product.name}</p>
-                      <p className="mt-1 text-xs opacity-80">
-                        {product.summary}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-              {errors.productId && (
-                <p className="text-xs text-red-500">{errors.productId}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notes">补充说明</Label>
-              <Textarea
-                id="notes"
-                rows={3}
-                placeholder="记录商户特别关注的点或已有痛点..."
-                value={form.notes}
-                onChange={(event) => handleChange("notes", event.target.value)}
-                onFocus={handleNotesFocus}
-                onBlur={handleNotesBlur}
-              />
-              <div className="flex items-center justify-end text-xs text-slate-500">
-                <button
-                  type="button"
-                  className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-500 transition hover:border-slate-400"
-                  onClick={fetchNotesSuggestions}
-                  disabled={notesLoading}
-                >
-                  {notesLoading ? "生成中..." : "重新生成"}
-                </button>
-              </div>
-              {notesError && (
-                <p className="text-xs text-red-500">{notesError}</p>
-              )}
-              {notesVisible && notesSuggestions.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {notesSuggestions.map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 transition hover:border-slate-400"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => applyNoteSuggestion(item)}
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {submitError && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-                {submitError}
-              </div>
-            )}
-
-            <div className="flex flex-wrap items-center gap-3">
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "生成中..." : "生成话术建议"}
-              </Button>
-              {successMessage && (
-                <span className="text-sm text-emerald-600">
-                  {successMessage}
-                </span>
-              )}
-              <span className="text-xs text-slate-400">
-                提示：在商户提问区按 Ctrl/Command + Enter 可快速生成
-              </span>
-            </div>
-          </form>
-        </section>
-
-        <div className="space-y-6">
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900 font-['Rubik']">
-              商户提问区
+  const dashboardContent = (
+    <div className="space-y-6">
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-blue-600">
+              欢迎回来
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-slate-900 font-['Rubik']">
+              今天开始一次高质量训练
             </h2>
             <p className="mt-2 text-sm text-slate-600">
-              可填写商户的具体疑义，系统会优先纳入话术建议。
+              选择画像快速生成话术，或直接进入演练对话。
             </p>
-            <Textarea
-              className="mt-4"
-              rows={4}
-              placeholder="例如：我们担心投放后成本太高，具体ROI能看到吗？"
-              value={merchantQuestion}
-              onChange={(event) => setMerchantQuestion(event.target.value)}
-              onKeyDown={handleQuestionKeyDown}
-            />
-            {!merchantQuestion.trim() && (
-              <p className="mt-2 text-xs text-slate-400">
-                当前为空，将默认使用常见疑义作为输入。
-              </p>
-            )}
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900 font-['Rubik']">
-              常见疑义
-            </h2>
-            {selectedProduct ? (
-              <div className="mt-4">
-                <p className="text-sm font-semibold text-slate-800">
-                  {selectedProduct.name}
-                </p>
-                <p className="mt-2 text-sm text-slate-600">
-                  {selectedProduct.summary}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {selectedProduct.questions.map((question) => (
-                    <button
-                      key={question}
-                      type="button"
-                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 transition hover:border-slate-400"
-                      onClick={() => setMerchantQuestion(question)}
-                    >
-                      {question}
-                    </button>
-                  ))}
-                </div>
-                <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-slate-700">
-                  {selectedProduct.questions.map((question) => (
-                    <li key={question}>{question}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <p className="mt-4 text-sm text-slate-500">暂无可用产品信息。</p>
-            )}
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900 font-['Rubik']">
-                话术建议
-              </h2>
-              {assistantSuggestion && !assistantError && (
-                <div className="flex items-center gap-2">
-                  {copyMessage && (
-                    <span className="text-xs text-slate-500">{copyMessage}</span>
-                  )}
-                  <Button
-                    type="button"
-                    className="bg-slate-800 hover:bg-slate-700"
-                    onClick={handleCopy}
-                    disabled={isSubmitting}
-                  >
-                    复制话术
-                  </Button>
-                </div>
-              )}
-            </div>
-            {assistantError && (
-              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-                <p>{assistantError}</p>
-                <Button
-                  type="button"
-                  className="mt-3 bg-red-600 hover:bg-red-500"
-                  onClick={runGeneration}
-                  disabled={isSubmitting}
-                >
-                  重新生成
-                </Button>
-              </div>
-            )}
-
-            {!assistantError && isSubmitting && (
-              <p className="mt-4 text-sm text-slate-500">生成中，请稍候...</p>
-            )}
-
-            {!assistantError && !isSubmitting && assistantSuggestion && (
-              <div className="mt-4 space-y-4 text-sm text-slate-700">
-                <div>
-                  <p className="text-xs font-semibold uppercase text-slate-500">
-                    核心价值
-                  </p>
-                  <p className="mt-1">
-                    {renderValue(assistantSuggestion.coreValue)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase text-slate-500">
-                    应对疑义
-                  </p>
-                  <p className="mt-1">
-                    {renderValue(assistantSuggestion.objectionResponse)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase text-slate-500">
-                    案例类比
-                  </p>
-                  <p className="mt-1">
-                    {renderValue(assistantSuggestion.caseAnalogy)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase text-slate-500">
-                    推进动作
-                  </p>
-                  <p className="mt-1">
-                    {renderValue(assistantSuggestion.nextStep)}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {!assistantError && !isSubmitting && !assistantSuggestion && (
-              <p className="mt-4 text-sm text-slate-500">
-                填写商户画像并提交后，这里会展示生成的话术建议。
-              </p>
-            )}
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900 font-['Rubik']">
-              历史记录区
-            </h2>
-            {history.length === 0 ? (
-              <p className="mt-4 text-sm text-slate-500">暂无生成记录。</p>
-            ) : (
-              <div
-                ref={historyRef}
-                className="mt-4 max-h-64 space-y-3 overflow-y-auto pr-1"
-              >
-                {history.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm transition hover:border-slate-200"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span>{item.createdAt}</span>
-                        <span>·</span>
-                        <span>{item.snapshot.productId}</span>
-                        <span>·</span>
-                        <span>{item.snapshot.industry}</span>
-                      </div>
-                      <button
-                        type="button"
-                        className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-500 transition hover:border-slate-400"
-                        onClick={() => applyHistory(item)}
-                      >
-                        回填
-                      </button>
-                    </div>
-                    {item.question && (
-                      <p className="mt-2 text-slate-600">
-                        商户提问：{item.question}
-                      </p>
-                    )}
-                    <p className="mt-2 text-slate-700">
-                      核心价值：{renderValue(item.suggestion.coreValue)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
-      </div>
-
-      <section className="mt-10 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900 font-['Rubik']">
-                销售演练系统
-              </h2>
-              <p className="mt-1 text-sm text-slate-600">
-                商户连续提问，你逐题回答并获取评分，完成后生成报告。
-              </p>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-            {drillItems.length > 0 && (
-              <span>
-                进度 {Math.min(drillIndex + 1, drillItems.length)}/
-                {drillItems.length}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" onClick={() => goToTraining("assistant")}>
+              <span className="mr-2 inline-flex">
+                <Icon name="spark" className="h-4 w-4" />
               </span>
-            )}
-              {drillQuestionSource && (
-                <span>
-                  问题来源：{drillQuestionSource === "ai" ? "AI" : "默认"}
-                </span>
-              )}
-              <Button
-                type="button"
-                onClick={startDrill}
-                disabled={drillLoading || drillQuestionsLoading}
-              >
-                {drillQuestionsLoading
-                  ? "生成中..."
-                  : drillActive
-                    ? "重新开始"
-                    : "开始演练"}
-              </Button>
-            </div>
-          </div>
-
-        {drillError && (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-            {drillError}
-          </div>
-        )}
-
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <div className="flex items-center justify-between text-xs text-slate-500">
-              <span>对话流</span>
-              {drillItems.length > 0 && (
-                <span>
-                  当前问题 {Math.min(drillIndex + 1, drillItems.length)}/
-                  {drillItems.length}
-                </span>
-              )}
-            </div>
-            <div
-              ref={drillChatRef}
-              className="mt-4 max-h-[420px] space-y-4 overflow-y-auto pr-2"
+              快速生成话术
+            </Button>
+            <Button
+              type="button"
+              className="bg-emerald-600 hover:bg-emerald-500 focus-visible:ring-emerald-200"
+              onClick={() => goToTraining("drill")}
             >
-              {visibleDrillItems.length === 0 ? (
-                <p className="text-sm text-slate-500">
-                  点击“开始演练”生成对话内容。
-                </p>
-              ) : (
-                visibleDrillItems.map((item, index) => (
-                  <div key={`${item.question}-${index}`} className="space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div className="mt-1 h-8 w-8 rounded-full bg-slate-900 text-center text-xs font-semibold leading-8 text-white">
-                        商
-                      </div>
-                      <div className="max-w-[80%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-                        <p>{item.question}</p>
-                        {item.kind === "followup" && (
-                          <span className="mt-2 inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">
-                            补充追问
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {item.answer && (
-                      <div className="flex items-start justify-end gap-3">
-                        <div className="max-w-[80%] rounded-2xl bg-slate-900 px-4 py-3 text-sm text-white shadow-sm">
-                          <p className="text-xs text-slate-300">你的回答</p>
-                          <p className="mt-2 whitespace-pre-line text-white">
-                            {item.answer}
-                          </p>
-                          {item.score !== undefined && (
-                            <p className="mt-2 text-xs text-slate-300">
-                              评分 {item.score} · {item.highlight}
-                            </p>
-                          )}
-                        </div>
-                        <div className="mt-1 h-8 w-8 rounded-full bg-blue-600 text-center text-xs font-semibold leading-8 text-white">
-                          我
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
+              <span className="mr-2 inline-flex">
+                <Icon name="play" className="h-4 w-4" />
+              </span>
+              进入销售演练
+            </Button>
+          </div>
+        </div>
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <Icon name="training" className="h-4 w-4 text-blue-600" />
+              快速开始训练
             </div>
-            <div className="mt-4 space-y-2">
-              <Label htmlFor="drill-answer">你的回答</Label>
-              <Textarea
-                id="drill-answer"
-                rows={3}
-                className="bg-white"
-                placeholder="用 2-3 句回应商户疑义，并给出推进动作..."
-                value={drillAnswer}
-                onChange={(event) => setDrillAnswer(event.target.value)}
-                disabled={!drillActive}
-              />
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <span className="text-xs text-slate-400">
-                  建议回答包括价值、案例与下一步动作
-                </span>
-                <Button
+            <p className="mt-2 text-sm text-slate-600">
+              选择一个画像，系统会自动填充并进入话术生成。
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {sampleProfiles.map((sample) => (
+                <button
+                  key={sample.id}
                   type="button"
-                  onClick={submitDrillAnswer}
-                  disabled={!drillActive || drillLoading}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-blue-200"
+                  onClick={() => handleSampleStart(sample)}
                 >
-                  {drillLoading ? "评分中..." : "提交并评分"}
-                </Button>
-              </div>
+                  {sample.label}
+                </button>
+              ))}
             </div>
           </div>
-
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase text-slate-500">
-                评分记录
-              </p>
-              {drillLoading && (
-                <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3 text-sm">
-                  <p className="text-xs text-slate-400">AI 实时反馈</p>
-                  <p className="mt-2 whitespace-pre-line text-slate-700">
-                    {drillStreamText || "生成中..."}
-                  </p>
-                </div>
-              )}
-              {drillItems.filter((item) => item.score !== undefined).length ===
-              0 ? (
-                <p className="mt-2 text-sm text-slate-500">
-                  暂无评分记录。
-                </p>
-              ) : (
-                <div className="mt-3 space-y-3">
-                  {drillItems
-                    .filter((item) => item.score !== undefined)
-                    .map((item) => (
-                      <div
-                        key={item.question}
-                        className="rounded-xl border border-slate-200 bg-white p-3 text-sm"
-                      >
-                        <p className="text-xs text-slate-400">
-                          得分 {item.score}
-                          {item.kind === "followup" && " · 追问"}
-                        </p>
-                        <p className="mt-1 text-slate-700">{item.question}</p>
-                        <p className="mt-2 text-slate-600">
-                          亮点：{item.highlight}
-                        </p>
-                        <p className="mt-1 text-slate-600">
-                          建议：{item.improve}
-                        </p>
-                      </div>
-                    ))}
-                </div>
-              )}
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <Icon name="trend" className="h-4 w-4 text-blue-600" />
+              个性化指导
             </div>
-
-            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase text-slate-500">
-                演练报告
-              </p>
-              {drillReport ? (
-                <div className="mt-3 space-y-3 text-sm text-slate-700">
-                  <p>{drillReport.summary}</p>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-500">
-                      亮点
-                    </p>
-                    {drillReport.strengths.length === 0 ? (
-                      <p className="mt-1 text-slate-500">暂无</p>
-                    ) : (
-                      <ul className="mt-1 list-disc space-y-1 pl-5">
-                        {drillReport.strengths.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-500">
-                      改进建议
-                    </p>
-                    {drillReport.improvements.length === 0 ? (
-                      <p className="mt-1 text-slate-500">暂无</p>
-                    ) : (
-                      <ul className="mt-1 list-disc space-y-1 pl-5">
-                        {drillReport.improvements.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-500">
-                      下一步
-                    </p>
-                    {drillReport.nextSteps.length === 0 ? (
-                      <p className="mt-1 text-slate-500">暂无</p>
-                    ) : (
-                      <ul className="mt-1 list-disc space-y-1 pl-5">
-                        {drillReport.nextSteps.map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <p className="mt-2 text-sm text-slate-500">
-                  完成所有问题后生成报告。
-                </p>
-              )}
+            <p className="mt-2 text-sm text-slate-600">
+              系统会根据关注点给出即时指导与改进建议。
+            </p>
+            <ul className="mt-3 space-y-2 text-xs text-slate-600">
+              {guidanceTips.map((tip) => (
+                <li key={tip} className="flex gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  <span>{tip}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <Icon name="bookmark" className="h-4 w-4 text-blue-600" />
+              保存优秀话术
+            </div>
+            <p className="mt-2 text-sm text-slate-600">
+              一键收藏高分话术，沉淀个人素材库。
+            </p>
+            <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
+              <span>已收藏 {savedScripts.length} 条</span>
+              <button
+                type="button"
+                className="text-blue-600 transition hover:text-blue-500"
+                onClick={() => setActivePage("toolbox")}
+              >
+                查看话术库
+              </button>
             </div>
           </div>
         </div>
       </section>
-    </main>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-xs text-slate-500">话术生成</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900">
+            {history.length}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            最近生成 {history[history.length - 1]?.createdAt ?? "暂无"}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-xs text-slate-500">演练评分</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900">
+            {averageScore}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            已完成 {scoredItems.length} 条评分
+          </p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-xs text-slate-500">收藏话术</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900">
+            {savedScripts.length}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            便于复用与分享
+          </p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-xs text-slate-500">画像完成度</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900">
+            {completion.percent}%
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            {completion.filled}/{completion.total} 项
+          </p>
+        </div>
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-slate-900 font-['Rubik']">
+              最近训练记录
+            </h3>
+            <button
+              type="button"
+              className="text-xs text-blue-600 transition hover:text-blue-500"
+              onClick={() => setActivePage("training")}
+            >
+              查看训练中心
+            </button>
+          </div>
+          {recentHistory.length === 0 ? (
+            <p className="mt-4 text-sm text-slate-500">暂无记录。</p>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {recentHistory.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm"
+                >
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span>{item.createdAt}</span>
+                    <span>{item.snapshot.productId}</span>
+                  </div>
+                  <p className="mt-2 text-slate-700">
+                    核心价值：{renderValue(item.suggestion.coreValue)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase text-slate-500">
+            进度概览
+          </p>
+          <div className="mt-4 space-y-4 text-sm text-slate-600">
+            <div>
+              <div className="flex items-center justify-between">
+                <span>画像完善度</span>
+                <span>{completion.percent}%</span>
+              </div>
+              <div className="mt-2 h-2 w-full rounded-full bg-slate-100">
+                <div
+                  className="h-2 rounded-full bg-blue-600"
+                  style={{ width: `${completion.percent}%` }}
+                />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between">
+                <span>演练平均得分</span>
+                <span>{averageScore}</span>
+              </div>
+              <div className="mt-2 h-2 w-full rounded-full bg-slate-100">
+                <div
+                  className="h-2 rounded-full bg-emerald-500"
+                  style={{ width: `${Math.min(averageScore, 100)}%` }}
+                />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between">
+                <span>收藏话术</span>
+                <span>{savedScripts.length} 条</span>
+              </div>
+              <div className="mt-2 h-2 w-full rounded-full bg-slate-100">
+                <div
+                  className="h-2 rounded-full bg-blue-400"
+                  style={{
+                    width: `${Math.min(savedScripts.length * 20, 100)}%`
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+
+  const pageContent = {
+    dashboard: dashboardContent,
+    training: trainingContent,
+    cases: casesContent,
+    toolbox: toolboxContent,
+    profile: profileContent
+  }[activePage];
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-slate-200 bg-white px-6 py-8 md:flex">
+        <div>
+          <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+            PitchPerfect
+          </span>
+          <h1 className="mt-3 text-lg font-semibold text-slate-900">
+            新人销售话术助手
+          </h1>
+          <p className="mt-1 text-xs text-slate-500">
+            AI 驱动的销售训练平台
+          </p>
+        </div>
+        <nav className="mt-8 space-y-2">
+          {navItems.map((item) => {
+            const active = activePage === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-sm font-medium transition",
+                  active
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-slate-600 hover:bg-slate-100"
+                )}
+                onClick={() => setActivePage(item.id)}
+              >
+                <Icon
+                  name={item.icon}
+                  className={cn(
+                    "h-5 w-5",
+                    active ? "text-blue-600" : "text-slate-400"
+                  )}
+                />
+                <div>
+                  <p>{item.label}</p>
+                  <p className="text-xs text-slate-400">{item.description}</p>
+                </div>
+              </button>
+            );
+          })}
+        </nav>
+        <div className="mt-auto rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-semibold text-slate-600">快速入口</p>
+          <p className="mt-2 text-sm text-slate-500">
+            立即开始一次对话式训练。
+          </p>
+          <Button
+            type="button"
+            className="mt-3 w-full bg-blue-600 hover:bg-blue-500"
+            onClick={() => goToTraining("assistant")}
+          >
+            开始训练
+          </Button>
+        </div>
+      </aside>
+
+      <div className="md:pl-64">
+        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-500">
+                {pageMeta[activePage].title}
+              </p>
+              <p className="mt-1 text-sm text-slate-600">
+                {pageMeta[activePage].description}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {activePage !== "training" && (
+                <Button type="button" onClick={() => goToTraining("assistant")}>
+                  开始训练
+                </Button>
+              )}
+              <div className="hidden items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-500 sm:flex">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                实时在线
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto max-w-6xl px-6 py-8 pb-28 md:pb-12">
+          {pageContent}
+        </main>
+      </div>
+
+      <nav className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around border-t border-slate-200 bg-white/95 px-4 py-2 md:hidden">
+        {navItems.map((item) => {
+          const active = activePage === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={cn(
+                "flex flex-col items-center gap-1 rounded-xl px-3 py-2 text-xs transition",
+                active ? "text-blue-600" : "text-slate-500"
+              )}
+              onClick={() => setActivePage(item.id)}
+            >
+              <Icon
+                name={item.icon}
+                className={cn(
+                  "h-5 w-5",
+                  active ? "text-blue-600" : "text-slate-400"
+                )}
+              />
+              {item.label}
+            </button>
+          );
+        })}
+      </nav>
+    </div>
   );
 }
