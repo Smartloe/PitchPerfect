@@ -1,9 +1,15 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent
+} from "react";
 import { productCatalog } from "./data/productCatalog";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
-import { Select } from "./components/ui/select";
 import { Textarea } from "./components/ui/textarea";
 import type {
   MerchantObjection,
@@ -35,6 +41,8 @@ const focusOptions = [
   "投放成本",
   "留资效率"
 ];
+
+const scaleOptions = ["1-5人", "6-15人", "16-50人", "50+人"];
 
 const sampleProfiles = [
   {
@@ -87,10 +95,18 @@ type FormErrors = Partial<Record<keyof FormState, string>>;
 type HistoryItem = {
   id: string;
   createdAt: string;
-  productName: string;
-  industry: string;
+  snapshot: FormState;
   question: string;
   suggestion: ScriptSuggestion;
+};
+
+const requiredFieldLabels: Record<keyof FormState, string> = {
+  industry: "行业",
+  scale: "规模",
+  businessDistrict: "商圈",
+  focusAreas: "关注点",
+  notes: "补充说明",
+  productId: "意向产品"
 };
 
 export default function App() {
@@ -102,21 +118,41 @@ export default function App() {
     notes: "",
     productId: productCatalog[0]?.id ?? "online-sales"
   });
+  const [merchantQuestion, setMerchantQuestion] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [assistantError, setAssistantError] = useState("");
-  const [copyMessage, setCopyMessage] = useState("");
   const [assistantSuggestion, setAssistantSuggestion] =
     useState<ScriptSuggestion | null>(null);
-  const [merchantQuestion, setMerchantQuestion] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [copyMessage, setCopyMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const historyRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
   const selectedProduct = useMemo(
     () => productCatalog.find((item) => item.id === form.productId),
     [form.productId]
   );
+
+  const completion = useMemo(() => {
+    const required: Array<keyof FormState> = [
+      "industry",
+      "scale",
+      "businessDistrict",
+      "focusAreas",
+      "productId"
+    ];
+    const filled = required.filter((field) => {
+      if (field === "focusAreas") {
+        return form.focusAreas.length > 0;
+      }
+      return String(form[field]).trim().length > 0;
+    }).length;
+    const percent = Math.round((filled / required.length) * 100);
+    return { filled, total: required.length, percent };
+  }, [form]);
 
   useEffect(() => {
     if (!historyRef.current) return;
@@ -125,6 +161,12 @@ export default function App() {
       behavior: "smooth"
     });
   }, [history]);
+
+  useEffect(() => {
+    if (!successMessage) return;
+    const timer = setTimeout(() => setSuccessMessage(""), 2000);
+    return () => clearTimeout(timer);
+  }, [successMessage]);
 
   const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -138,6 +180,56 @@ export default function App() {
         : [...prev.focusAreas, value];
       return { ...prev, focusAreas };
     });
+  };
+
+  const setScale = (value: string) => {
+    setForm((prev) => ({ ...prev, scale: value }));
+  };
+
+  const setProduct = (value: ProductId) => {
+    setForm((prev) => ({ ...prev, productId: value }));
+  };
+
+  const resetForm = () => {
+    setForm({
+      industry: "",
+      scale: "",
+      businessDistrict: "",
+      focusAreas: [],
+      notes: "",
+      productId: productCatalog[0]?.id ?? "online-sales"
+    });
+    setMerchantQuestion("");
+    setErrors({});
+    setSubmitError("");
+    setAssistantError("");
+    setAssistantSuggestion(null);
+  };
+
+  const applySampleProfile = (sample: (typeof sampleProfiles)[number]) => {
+    setForm({
+      industry: sample.profile.industry,
+      scale: sample.profile.scale,
+      businessDistrict: sample.profile.businessDistrict,
+      focusAreas: sample.profile.focusAreas,
+      notes: sample.profile.notes ?? "",
+      productId: sample.productId
+    });
+    setMerchantQuestion(sample.question);
+    setErrors({});
+    setSubmitError("");
+    setAssistantError("");
+    setAssistantSuggestion(null);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const applyHistory = (item: HistoryItem) => {
+    setForm(item.snapshot);
+    setMerchantQuestion(item.question);
+    setAssistantSuggestion(item.suggestion);
+    setAssistantError("");
+    setSubmitError("");
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const validate = (): FormErrors => {
@@ -162,61 +254,6 @@ export default function App() {
       base.unshift({ topic: "商户提问", detail: merchantQuestion.trim() });
     }
     return base;
-  };
-
-  const runGeneration = async () => {
-    setIsSubmitting(true);
-    setAssistantError("");
-    setCopyMessage("");
-    try {
-      const response = await generateScriptAdvice({
-        merchant: {
-          industry: form.industry,
-          scale: form.scale,
-          businessDistrict: form.businessDistrict,
-          focusAreas: form.focusAreas,
-          notes: form.notes
-        },
-        productId: form.productId,
-        objections: buildObjections()
-      });
-      setAssistantSuggestion(response.suggestion);
-      setHistory((prev) =>
-        [
-          ...prev,
-          {
-            id: `${Date.now()}`,
-            createdAt: new Date().toLocaleString("zh-CN"),
-            productName: selectedProduct?.name ?? form.productId,
-            industry: form.industry,
-            question: merchantQuestion.trim(),
-            suggestion: response.suggestion
-          }
-        ].slice(-5)
-      );
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "生成失败，请稍后重试。";
-      setAssistantError(message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const applySampleProfile = (sample: (typeof sampleProfiles)[number]) => {
-    setForm({
-      industry: sample.profile.industry,
-      scale: sample.profile.scale,
-      businessDistrict: sample.profile.businessDistrict,
-      focusAreas: sample.profile.focusAreas,
-      notes: sample.profile.notes ?? "",
-      productId: sample.productId
-    });
-    setMerchantQuestion(sample.question);
-    setErrors({});
-    setSubmitError("");
-    setAssistantError("");
-    setAssistantSuggestion(null);
   };
 
   const renderValue = (value: string) => {
@@ -244,19 +281,73 @@ export default function App() {
     }
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const runGeneration = async () => {
+    setIsSubmitting(true);
+    setAssistantError("");
+    setCopyMessage("");
+    setSuccessMessage("");
+    try {
+      const response = await generateScriptAdvice({
+        merchant: {
+          industry: form.industry,
+          scale: form.scale,
+          businessDistrict: form.businessDistrict,
+          focusAreas: form.focusAreas,
+          notes: form.notes
+        },
+        productId: form.productId,
+        objections: buildObjections()
+      });
+      setAssistantSuggestion(response.suggestion);
+      setSuccessMessage("话术已生成");
+      setHistory((prev) =>
+        [
+          ...prev,
+          {
+            id: `${Date.now()}`,
+            createdAt: new Date().toLocaleString("zh-CN"),
+            snapshot: form,
+            question: merchantQuestion.trim(),
+            suggestion: response.suggestion
+          }
+        ].slice(-5)
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "生成失败，请稍后重试。";
+      setAssistantError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const submitFromShortcut = () => {
     const nextErrors = validate();
     setErrors(nextErrors);
-
     if (Object.keys(nextErrors).length > 0) {
       setSubmitError("请完善必填信息后再提交。");
       return;
     }
-
     setSubmitError("");
-    await runGeneration();
+    runGeneration();
   };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    submitFromShortcut();
+  };
+
+  const handleQuestionKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      submitFromShortcut();
+    }
+  };
+
+  const errorSummary = Object.keys(errors).map((key) => {
+    const field = key as keyof FormState;
+    return requiredFieldLabels[field];
+  });
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-12">
@@ -264,17 +355,18 @@ export default function App() {
         <span className="inline-flex w-fit items-center rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">
           PitchPerfect · 新人销售话术助手
         </span>
-        <h1 className="text-3xl font-semibold text-slate-900">
-          产品范围与对话流程
+        <h1 className="text-3xl font-semibold text-slate-900 font-['Rubik']">
+          更快完成商户沟通准备
         </h1>
         <p className="text-base text-slate-600">
-          录入商户画像并选择意向产品，系统会输出商户常见疑义，帮助新人销售
-          抓住关键点。
+          通过画像 + 产品 + 疑义三步，快速生成可复制的话术建议。
         </p>
       </header>
 
       <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">三方对话流程</h2>
+        <h2 className="text-lg font-semibold text-slate-900 font-['Rubik']">
+          三方对话流程
+        </h2>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
           {flowSteps.map((step) => (
             <div
@@ -288,31 +380,60 @@ export default function App() {
         </div>
       </section>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mt-8 grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+        <section
+          ref={formRef}
+          className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">商户画像表单</h2>
-            {isSubmitting && (
-              <span className="text-xs font-medium text-slate-500">
-                正在生成建议...
+            <h2 className="text-lg font-semibold text-slate-900 font-['Rubik']">
+              商户画像表单
+            </h2>
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <span>
+                完成度 {completion.filled}/{completion.total}
               </span>
-            )}
-          </div>
-          <div className="mt-4">
-            <p className="text-xs text-slate-500">示例画像一键填充：</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {sampleProfiles.map((sample) => (
-                <button
-                  key={sample.id}
-                  type="button"
-                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-slate-400"
-                  onClick={() => applySampleProfile(sample)}
-                >
-                  {sample.label}
-                </button>
-              ))}
+              <span>{completion.percent}%</span>
             </div>
           </div>
+          <div className="mt-3 h-2 w-full rounded-full bg-slate-100">
+            <div
+              className="h-2 rounded-full bg-slate-900 transition-all"
+              style={{ width: `${completion.percent}%` }}
+            />
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-500">示例画像：</span>
+            {sampleProfiles.map((sample) => (
+              <button
+                key={sample.id}
+                type="button"
+                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-slate-400"
+                onClick={() => applySampleProfile(sample)}
+              >
+                {sample.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="ml-auto rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500 transition hover:border-slate-400"
+              onClick={resetForm}
+            >
+              清空表单
+            </button>
+          </div>
+
+          {errorSummary.length > 0 && (
+            <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              <p className="font-semibold">请补充以下信息：</p>
+              <ul className="mt-2 list-disc pl-5">
+                {errorSummary.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
             <div className="space-y-2">
@@ -329,18 +450,26 @@ export default function App() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="scale">规模</Label>
-              <Select
-                id="scale"
-                value={form.scale}
-                onChange={(event) => handleChange("scale", event.target.value)}
-              >
-                <option value="">请选择规模</option>
-                <option value="1-5人">1-5人</option>
-                <option value="6-15人">6-15人</option>
-                <option value="16-50人">16-50人</option>
-                <option value="50+人">50+人</option>
-              </Select>
+              <Label>规模</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {scaleOptions.map((option) => {
+                  const active = form.scale === option;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                        active
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
+                      }`}
+                      onClick={() => setScale(option)}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
               {errors.scale && (
                 <p className="text-xs text-red-500">{errors.scale}</p>
               )}
@@ -390,20 +519,34 @@ export default function App() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="product">意向产品</Label>
-              <Select
-                id="product"
-                value={form.productId}
-                onChange={(event) =>
-                  handleChange("productId", event.target.value as ProductId)
-                }
+              <Label>意向产品</Label>
+              <div
+                role="radiogroup"
+                className="grid gap-3 md:grid-cols-3"
               >
-                {productCatalog.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.name}
-                  </option>
-                ))}
-              </Select>
+                {productCatalog.map((product) => {
+                  const active = form.productId === product.id;
+                  return (
+                    <button
+                      key={product.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
+                        active
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-400"
+                      }`}
+                      onClick={() => setProduct(product.id)}
+                    >
+                      <p className="font-semibold">{product.name}</p>
+                      <p className="mt-1 text-xs opacity-80">
+                        {product.summary}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
               {errors.productId && (
                 <p className="text-xs text-red-500">{errors.productId}</p>
               )}
@@ -426,15 +569,27 @@ export default function App() {
               </div>
             )}
 
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "生成中..." : "生成话术建议"}
-            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "生成中..." : "生成话术建议"}
+              </Button>
+              {successMessage && (
+                <span className="text-sm text-emerald-600">
+                  {successMessage}
+                </span>
+              )}
+              <span className="text-xs text-slate-400">
+                提示：在商户提问区按 Ctrl/Command + Enter 可快速生成
+              </span>
+            </div>
           </form>
         </section>
 
         <div className="space-y-6">
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">商户提问区</h2>
+            <h2 className="text-lg font-semibold text-slate-900 font-['Rubik']">
+              商户提问区
+            </h2>
             <p className="mt-2 text-sm text-slate-600">
               可填写商户的具体疑义，系统会优先纳入话术建议。
             </p>
@@ -444,6 +599,7 @@ export default function App() {
               placeholder="例如：我们担心投放后成本太高，具体ROI能看到吗？"
               value={merchantQuestion}
               onChange={(event) => setMerchantQuestion(event.target.value)}
+              onKeyDown={handleQuestionKeyDown}
             />
             {!merchantQuestion.trim() && (
               <p className="mt-2 text-xs text-slate-400">
@@ -453,7 +609,9 @@ export default function App() {
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">常见疑义</h2>
+            <h2 className="text-lg font-semibold text-slate-900 font-['Rubik']">
+              常见疑义
+            </h2>
             {selectedProduct ? (
               <div className="mt-4">
                 <p className="text-sm font-semibold text-slate-800">
@@ -487,7 +645,9 @@ export default function App() {
 
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">话术建议</h2>
+              <h2 className="text-lg font-semibold text-slate-900 font-['Rubik']">
+                话术建议
+              </h2>
               {assistantSuggestion && !assistantError && (
                 <div className="flex items-center gap-2">
                   {copyMessage && (
@@ -567,7 +727,9 @@ export default function App() {
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">历史记录区</h2>
+            <h2 className="text-lg font-semibold text-slate-900 font-['Rubik']">
+              历史记录区
+            </h2>
             {history.length === 0 ? (
               <p className="mt-4 text-sm text-slate-500">暂无生成记录。</p>
             ) : (
@@ -580,12 +742,21 @@ export default function App() {
                     key={item.id}
                     className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm transition hover:border-slate-200"
                   >
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                      <span>{item.createdAt}</span>
-                      <span>·</span>
-                      <span>{item.productName}</span>
-                      <span>·</span>
-                      <span>{item.industry}</span>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>{item.createdAt}</span>
+                        <span>·</span>
+                        <span>{item.snapshot.productId}</span>
+                        <span>·</span>
+                        <span>{item.snapshot.industry}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-500 transition hover:border-slate-400"
+                        onClick={() => applyHistory(item)}
+                      >
+                        回填
+                      </button>
                     </div>
                     {item.question && (
                       <p className="mt-2 text-slate-600">
