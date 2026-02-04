@@ -618,8 +618,7 @@ export default function App() {
                 onFocus={handleNotesFocus}
                 onBlur={handleNotesBlur}
               />
-              <div className="flex items-center justify-between text-xs text-slate-500">
-                <span>AI 补充建议（点击输入框自动生成）</span>
+              <div className="flex items-center justify-end text-xs text-slate-500">
                 <button
                   type="button"
                   className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-500 transition hover:border-slate-400"
