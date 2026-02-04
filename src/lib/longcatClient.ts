@@ -1,4 +1,4 @@
-const API_URL = "https://api.longcat.chat/openai/v1/chat/completions";
+const API_URL = "/api/chat";
 
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
@@ -10,21 +10,14 @@ export async function createChatCompletion(options: {
   model?: string;
   signal?: AbortSignal;
 }) {
-  const apiKey = import.meta.env.VITE_LONGCAT_API_KEY;
-  if (!apiKey) {
-    throw new Error("缺少 VITE_LONGCAT_API_KEY，请在环境变量中配置。");
-  }
-
   const response = await fetch(API_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
       model: options.model ?? "LongCat-Flash-Chat",
-      messages: options.messages,
-      stream: false
+      messages: options.messages
     }),
     signal: options.signal
   });
