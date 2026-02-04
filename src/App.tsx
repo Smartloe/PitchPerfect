@@ -26,6 +26,14 @@ import {
   generateScriptAdvice
 } from "./lib/salesAssistantClient";
 import { cn } from "./lib/cn";
+import {
+  clearAuth,
+  getStoredAuth,
+  loginAccount,
+  registerAccount,
+  saveMemoryEntry,
+  storeAuth
+} from "./lib/authClient";
 
 const focusOptions = [
   "交易提升",
@@ -238,6 +246,18 @@ const achievementTracks = [
   }
 ];
 
+const cardBase =
+  "relative overflow-hidden rounded-3xl border border-white/70 bg-white/80 shadow-[0_24px_60px_rgba(15,23,42,0.08)] ring-1 ring-white/60 backdrop-blur after:pointer-events-none after:absolute after:inset-0 after:rounded-[24px] after:border after:border-white/50 after:shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]";
+const cardSoft =
+  "relative overflow-hidden rounded-2xl border border-white/60 bg-white/75 shadow-[0_16px_40px_rgba(15,23,42,0.06)] ring-1 ring-white/60 backdrop-blur after:pointer-events-none after:absolute after:inset-0 after:rounded-[20px] after:border after:border-white/50 after:shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]";
+const cardGhost =
+  "relative overflow-hidden rounded-2xl border border-white/70 bg-white/70 shadow-[0_12px_24px_rgba(15,23,42,0.05)] ring-1 ring-white/60 backdrop-blur after:pointer-events-none after:absolute after:inset-0 after:rounded-[18px] after:border after:border-white/50 after:shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]";
+const hoverLift = "transition-transform duration-200 hover:-translate-y-0.5";
+const pillBase =
+  "inline-flex items-center rounded-full border border-white/60 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 shadow-[0_8px_20px_rgba(15,23,42,0.08)] backdrop-blur transition hover:border-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200";
+const pillSubtle =
+  "inline-flex items-center rounded-full border border-white/50 bg-white/70 px-2.5 py-0.5 text-xs font-medium text-slate-500 shadow-[0_6px_16px_rgba(15,23,42,0.06)] backdrop-blur transition hover:border-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200";
+
 type FormState = MerchantProfile & {
   productId: ProductId;
 };
@@ -408,10 +428,82 @@ const SkeletonLine = ({ className }: { className?: string }) => (
   />
 );
 
+const SkeletonCard = ({ lines = 3 }: { lines?: number }) => (
+  <div className={cn(cardSoft, "p-4")}>
+    <SkeletonLine className="w-20" />
+    {Array.from({ length: lines }).map((_, index) => (
+      <SkeletonLine key={index} className={index === lines - 1 ? "w-4/5" : ""} />
+    ))}
+  </div>
+);
+
+const EmptyIllustration = ({ tone }: { tone: "blue" | "emerald" | "slate" }) => {
+  const color =
+    tone === "emerald"
+      ? "stroke-emerald-500"
+      : tone === "slate"
+        ? "stroke-slate-400"
+        : "stroke-blue-500";
+  return (
+    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/80 shadow-sm">
+      <svg
+        className={cn("h-7 w-7", color)}
+        viewBox="0 0 24 24"
+        fill="none"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="4" y="5" width="16" height="14" rx="3" />
+        <path d="M8 10h8" />
+        <path d="M8 14h5" />
+      </svg>
+    </div>
+  );
+};
+
+const EmptyState = ({
+  title,
+  description,
+  tone = "blue",
+  actionLabel,
+  onAction
+}: {
+  title: string;
+  description: string;
+  tone?: "blue" | "emerald" | "slate";
+  actionLabel?: string;
+  onAction?: () => void;
+}) => (
+  <div className={cn(cardSoft, "flex items-start gap-4 p-4")}>
+    <EmptyIllustration tone={tone} />
+    <div className="flex-1">
+      <p className="text-sm font-semibold text-slate-800">{title}</p>
+      <p className="mt-2 text-xs text-slate-500">{description}</p>
+      {actionLabel && onAction && (
+        <button
+          type="button"
+          className="mt-3 text-xs font-semibold text-blue-600 transition hover:text-blue-500"
+          onClick={onAction}
+        >
+          {actionLabel}
+        </button>
+      )}
+    </div>
+  </div>
+);
+
 export default function App() {
   const [activePage, setActivePage] = useState<NavId>("dashboard");
   const [trainingTab, setTrainingTab] = useState<TrainingTab>("assistant");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [authUser, setAuthUser] = useState("");
+  const [authToken, setAuthToken] = useState("");
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authForm, setAuthForm] = useState({ username: "", password: "" });
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [memoryNotice, setMemoryNotice] = useState("");
   const [form, setForm] = useState<FormState>({
     industry: "",
     scale: "",
@@ -458,7 +550,6 @@ export default function App() {
   const [toolboxCategory, setToolboxCategory] = useState("全部");
   const [favoriteTemplates, setFavoriteTemplates] = useState<string[]>([]);
   const [toolboxNotice, setToolboxNotice] = useState("");
-  const historyRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const drillChatRef = useRef<HTMLDivElement>(null);
 
@@ -579,13 +670,18 @@ export default function App() {
     return tips.slice(0, 4);
   }, [form.focusAreas]);
 
-  useEffect(() => {
-    if (!historyRef.current) return;
-    historyRef.current.scrollTo({
-      top: historyRef.current.scrollHeight,
-      behavior: "smooth"
-    });
-  }, [history]);
+  const getScoreTone = (score?: number) => {
+    if (typeof score !== "number") {
+      return { badge: "bg-slate-100 text-slate-500" };
+    }
+    if (score >= 85) {
+      return { badge: "bg-emerald-100 text-emerald-700" };
+    }
+    if (score >= 70) {
+      return { badge: "bg-blue-100 text-blue-700" };
+    }
+    return { badge: "bg-orange-100 text-orange-700" };
+  };
 
   useEffect(() => {
     if (!drillChatRef.current) return;
@@ -601,10 +697,24 @@ export default function App() {
   }, [form.industry, form.productId]);
 
   useEffect(() => {
+    const stored = getStoredAuth();
+    if (stored.token && stored.username) {
+      setAuthToken(stored.token);
+      setAuthUser(stored.username);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!toolboxNotice) return;
     const timer = setTimeout(() => setToolboxNotice(""), 1800);
     return () => clearTimeout(timer);
   }, [toolboxNotice]);
+
+  useEffect(() => {
+    if (!memoryNotice) return;
+    const timer = setTimeout(() => setMemoryNotice(""), 1800);
+    return () => clearTimeout(timer);
+  }, [memoryNotice]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -898,6 +1008,21 @@ export default function App() {
             }
           : item
       );
+      const drillLedger = [
+        `- 行业：${form.industry || "待补充"}`,
+        `- 意向产品：${selectedProduct?.name || form.productId}`,
+        `- 商户问题：${question}`,
+        `- 你的回答：${drillAnswer.trim()}`,
+        `- 得分：${score.score}`,
+        `- 亮点：${score.highlight}`,
+        `- 改进建议：${score.improve}`
+      ].join("\n");
+      const drillSummary = `行业${form.industry} 产品${selectedProduct?.name || form.productId} 问题${question} 得分${score.score} 亮点${score.highlight}`;
+      void recordMemory({
+        title: "演练问答",
+        ledger: drillLedger,
+        summarySource: drillSummary
+      });
       let updatedItems = baseItems;
       if (shouldFollowUp(score.score, drillAnswer)) {
         try {
@@ -992,6 +1117,53 @@ export default function App() {
     }
   };
 
+  const handleAuthSubmit = async () => {
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      const username = authForm.username.trim();
+      const password = authForm.password;
+      if (!username || !password) {
+        setAuthError("请输入账号与密码");
+        return;
+      }
+      const response =
+        authMode === "register"
+          ? await registerAccount(username, password)
+          : await loginAccount(username, password);
+      setAuthUser(response.username);
+      setAuthToken(response.token);
+      storeAuth(response.token, response.username);
+      setAuthForm({ username: "", password: "" });
+      setMemoryNotice("已登录，可保存记忆");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "登录失败";
+      setAuthError(message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    clearAuth();
+    setAuthUser("");
+    setAuthToken("");
+    setMemoryNotice("已退出登录");
+  };
+
+  const recordMemory = async (entry: {
+    title: string;
+    ledger: string;
+    summarySource: string;
+  }) => {
+    if (!authToken) return;
+    try {
+      await saveMemoryEntry(authToken, entry);
+    } catch (error) {
+      setMemoryNotice("记忆保存失败");
+    }
+  };
+
   const toggleFavoriteTemplate = (id: string) => {
     setFavoriteTemplates((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -1048,6 +1220,28 @@ export default function App() {
           }
         ].slice(-5)
       );
+      const objectionText =
+        merchantQuestion.trim() ||
+        selectedProduct?.questions[0] ||
+        "常见疑义";
+      const ledger = [
+        `- 行业：${form.industry || "待补充"}`,
+        `- 规模：${form.scale || "待补充"}`,
+        `- 商圈：${form.businessDistrict || "待补充"}`,
+        `- 关注点：${form.focusAreas.join("、") || "待补充"}`,
+        `- 商户疑义：${objectionText}`,
+        `- 话术建议：`,
+        `  - 核心价值：${renderValue(response.suggestion.coreValue)}`,
+        `  - 应对疑义：${renderValue(response.suggestion.objectionResponse)}`,
+        `  - 案例类比：${renderValue(response.suggestion.caseAnalogy)}`,
+        `  - 推进动作：${renderValue(response.suggestion.nextStep)}`
+      ].join("\n");
+      const summarySource = `行业${form.industry} 商圈${form.businessDistrict} 关注点${form.focusAreas.join("、")} 疑义${objectionText} 话术要点${renderValue(response.suggestion.coreValue)} ${renderValue(response.suggestion.nextStep)}`;
+      void recordMemory({
+        title: "话术生成",
+        ledger,
+        summarySource
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "生成失败，请稍后重试。";
@@ -1107,7 +1301,7 @@ export default function App() {
   const assistantPanel = (
     <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
       <div className="space-y-6">
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className={cn(cardBase, "p-5", hoverLift)}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-slate-500">
@@ -1138,7 +1332,7 @@ export default function App() {
                 </p>
               )}
             </div>
-            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <div className={cn(cardSoft, "p-4")}>
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-slate-700">
                   常见疑义
@@ -1159,7 +1353,7 @@ export default function App() {
                       <button
                         key={question}
                         type="button"
-                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 transition hover:border-blue-200"
+                        className={cn(pillBase, "cursor-pointer")}
                         onClick={() => setMerchantQuestion(question)}
                       >
                         {question}
@@ -1174,7 +1368,7 @@ export default function App() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className={cn(cardBase, "p-5", hoverLift)}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-lg font-semibold text-slate-900 font-['Rubik']">
@@ -1226,17 +1420,17 @@ export default function App() {
           )}
 
           {!assistantError && isSubmitting && (
-            <div className="mt-4 space-y-3">
-              <SkeletonLine className="w-24" />
-              <SkeletonLine />
-              <SkeletonLine className="w-5/6" />
-              <SkeletonLine className="w-1/2" />
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
             </div>
           )}
 
           {!assistantError && !isSubmitting && assistantSuggestion && (
             <div className="mt-4 grid gap-4 text-sm text-slate-700">
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <div className={cn(cardSoft, "p-4")}>
                 <p className="text-xs font-semibold uppercase text-slate-500">
                   核心价值
                 </p>
@@ -1244,7 +1438,7 @@ export default function App() {
                   {renderValue(assistantSuggestion.coreValue)}
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <div className={cn(cardSoft, "p-4")}>
                 <p className="text-xs font-semibold uppercase text-slate-500">
                   应对疑义
                 </p>
@@ -1252,7 +1446,7 @@ export default function App() {
                   {renderValue(assistantSuggestion.objectionResponse)}
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <div className={cn(cardSoft, "p-4")}>
                 <p className="text-xs font-semibold uppercase text-slate-500">
                   案例类比
                 </p>
@@ -1260,7 +1454,7 @@ export default function App() {
                   {renderValue(assistantSuggestion.caseAnalogy)}
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <div className={cn(cardSoft, "p-4")}>
                 <p className="text-xs font-semibold uppercase text-slate-500">
                   推进动作
                 </p>
@@ -1272,15 +1466,25 @@ export default function App() {
           )}
 
           {!assistantError && !isSubmitting && !assistantSuggestion && (
-            <p className="mt-4 text-sm text-slate-500">
-              填写商户信息并提交后，这里会展示生成的话术建议。
-            </p>
+            <div className="mt-4">
+              <EmptyState
+                title="暂无话术建议"
+                description="填写商户信息后点击生成，即可获得结构化话术。"
+                actionLabel="回到表单"
+                onAction={() =>
+                  formRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start"
+                  })
+                }
+              />
+            </div>
           )}
         </section>
       </div>
 
       <div className="space-y-6">
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className={cn(cardBase, "p-5", hoverLift)}>
           <p className="text-xs font-semibold uppercase text-slate-500">
             实时指导工具
           </p>
@@ -1291,7 +1495,10 @@ export default function App() {
             {guidanceTips.map((tip) => (
               <div
                 key={tip}
-                className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-600"
+                className={cn(
+                  cardGhost,
+                  "flex items-start gap-3 px-3 py-2 text-sm text-slate-600"
+                )}
               >
                 <span className="mt-2 h-2 w-2 rounded-full bg-blue-500" />
                 <span>{tip}</span>
@@ -1300,7 +1507,7 @@ export default function App() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className={cn(cardBase, "p-5", hoverLift)}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-slate-500">
@@ -1319,14 +1526,19 @@ export default function App() {
             </button>
           </div>
           {activeCase ? (
-            <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-700">
+            <div className={cn(cardSoft, "mt-4 p-4 text-sm text-slate-700")}>
               <p className="font-semibold">{activeCase.title}</p>
               <p className="mt-2 text-slate-600">{activeCase.summary}</p>
               <p className="mt-2 text-xs text-slate-500">
                 {activeCase.result}
               </p>
               <div className="mt-3 flex items-center justify-between">
-                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                <span
+                  className={cn(
+                    pillSubtle,
+                    "border-blue-100/80 bg-blue-100/90 text-blue-700 shadow-none"
+                  )}
+                >
                   {activeCase.industry}
                 </span>
                 <button
@@ -1339,22 +1551,36 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <p className="mt-4 text-sm text-slate-500">暂无推荐案例。</p>
+            <div className="mt-4">
+              <EmptyState
+                title="暂无推荐案例"
+                description="完善画像后将自动推荐相似商户案例。"
+              />
+            </div>
           )}
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className={cn(cardBase, "p-5", hoverLift)}>
           <h3 className="text-base font-semibold text-slate-900 font-['Rubik']">
             最近话术记录
           </h3>
           {history.length === 0 ? (
-            <p className="mt-4 text-sm text-slate-500">暂无生成记录。</p>
+            <div className="mt-4">
+              <EmptyState
+                tone="slate"
+                title="暂无话术记录"
+                description="生成话术后将自动沉淀在这里。"
+              />
+            </div>
           ) : (
             <div className="mt-4 space-y-3">
               {recentHistory.map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm transition hover:border-blue-100"
+                  className={cn(
+                    cardGhost,
+                    "p-3 text-sm transition hover:border-blue-200"
+                  )}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                     <span>{item.createdAt}</span>
@@ -1379,7 +1605,7 @@ export default function App() {
   );
 
   const drillPanel = (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section className={cn(cardBase, "p-5", hoverLift)}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold text-slate-900 font-['Rubik']">
@@ -1422,7 +1648,7 @@ export default function App() {
       )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className={cn(cardSoft, "p-4")}>
           <div className="flex items-center justify-between text-xs text-slate-500">
             <span>对话流</span>
             {drillItems.length > 0 && (
@@ -1434,23 +1660,44 @@ export default function App() {
           </div>
           <div
             ref={drillChatRef}
-            className="mt-4 max-h-[420px] space-y-4 overflow-y-auto pr-2"
+            className="mt-4 max-h-[420px] space-y-4 overflow-y-auto rounded-2xl bg-gradient-to-br from-white/60 via-white/40 to-blue-50/40 p-3 pr-2 shadow-inner"
           >
-            {visibleDrillItems.length === 0 ? (
-              <p className="text-sm text-slate-500">
-                点击“开始演练”生成对话内容。
-              </p>
+            {drillQuestionsLoading ? (
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 h-8 w-8 rounded-full bg-slate-200" />
+                  <div className="w-3/4 rounded-2xl border border-white/60 bg-white/70 p-3 shadow-sm">
+                    <SkeletonLine />
+                    <SkeletonLine className="w-2/3" />
+                  </div>
+                </div>
+                <div className="flex items-start justify-end gap-3">
+                  <div className="w-2/3 rounded-2xl bg-blue-100/70 p-3">
+                    <SkeletonLine className="w-1/2" />
+                    <SkeletonLine />
+                  </div>
+                  <div className="mt-1 h-8 w-8 rounded-full bg-emerald-100" />
+                </div>
+              </div>
+            ) : visibleDrillItems.length === 0 ? (
+              <div className="p-2">
+                <EmptyState
+                  tone="slate"
+                  title="准备开始演练"
+                  description="点击开始演练，生成商户提问对话。"
+                />
+              </div>
             ) : (
               visibleDrillItems.map((item, index) => (
                 <div key={`${item.question}-${index}`} className="space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="mt-1 h-8 w-8 rounded-full bg-slate-900 text-center text-xs font-semibold leading-8 text-white">
+                    <div className="mt-1 h-8 w-8 rounded-full bg-slate-900 text-center text-xs font-semibold leading-8 text-white shadow-sm">
                       商
                     </div>
-                    <div className="max-w-[80%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                    <div className="max-w-[80%] rounded-2xl border border-white/70 bg-white/85 px-4 py-3 text-sm text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur">
                       <p>{item.question}</p>
                       {item.kind === "followup" && (
-                        <span className="mt-2 inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">
+                        <span className="mt-2 inline-flex rounded-full bg-orange-100/80 px-2 py-0.5 text-xs text-orange-700">
                           补充追问
                         </span>
                       )}
@@ -1458,7 +1705,7 @@ export default function App() {
                   </div>
                   {item.answer && (
                     <div className="flex items-start justify-end gap-3">
-                      <div className="max-w-[80%] rounded-2xl bg-blue-600 px-4 py-3 text-sm text-white shadow-sm">
+                      <div className="max-w-[80%] rounded-2xl bg-gradient-to-br from-blue-600 via-blue-600 to-indigo-600 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(37,99,235,0.35)] ring-1 ring-white/40">
                         <p className="text-xs text-blue-100">你的回答</p>
                         <p className="mt-2 whitespace-pre-line text-white">
                           {item.answer}
@@ -1469,7 +1716,7 @@ export default function App() {
                           </p>
                         )}
                       </div>
-                      <div className="mt-1 h-8 w-8 rounded-full bg-emerald-500 text-center text-xs font-semibold leading-8 text-white">
+                      <div className="mt-1 h-8 w-8 rounded-full bg-emerald-500 text-center text-xs font-semibold leading-8 text-white shadow-sm">
                         我
                       </div>
                     </div>
@@ -1505,14 +1752,14 @@ export default function App() {
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <div className={cn(cardSoft, "p-4")}>
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase text-slate-500">
                 录音与评估
               </p>
               <button
                 type="button"
-                className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition hover:border-blue-200"
+                className={cn(pillBase, "cursor-pointer")}
                 onClick={toggleRecording}
               >
                 {recordingActive ? "停止录音" : "开始录音"}
@@ -1521,7 +1768,7 @@ export default function App() {
             <p className="mt-2 text-sm text-slate-600">
               录音功能支持复盘语速与表达逻辑，便于评估表现。
             </p>
-            <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs text-slate-500">
+            <div className={cn(pillSubtle, "mt-3 gap-2")}>
               <span
                 className={cn(
                   "h-2 w-2 rounded-full",
@@ -1532,12 +1779,12 @@ export default function App() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <div className={cn(cardSoft, "p-4")}>
             <p className="text-xs font-semibold uppercase text-slate-500">
               评分记录
             </p>
             {drillLoading && (
-              <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3 text-sm">
+              <div className={cn(cardGhost, "mt-3 p-3 text-sm")}>
                 <p className="text-xs text-slate-400">AI 实时反馈</p>
                 <p className="mt-2 whitespace-pre-line text-slate-700">
                   {drillStreamText || "生成中..."}
@@ -1545,32 +1792,49 @@ export default function App() {
               </div>
             )}
             {scoredItems.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-500">暂无评分记录。</p>
+              <div className="mt-3">
+                <EmptyState
+                  tone="slate"
+                  title="暂无评分记录"
+                  description="提交回答后将自动生成评分。"
+                />
+              </div>
             ) : (
               <div className="mt-3 space-y-3">
-                {scoredItems.map((item) => (
-                  <div
-                    key={item.question}
-                    className="rounded-xl border border-slate-200 bg-white p-3 text-sm"
-                  >
-                    <p className="text-xs text-slate-400">
-                      得分 {item.score}
-                      {item.kind === "followup" && " · 追问"}
-                    </p>
-                    <p className="mt-1 text-slate-700">{item.question}</p>
-                    <p className="mt-2 text-slate-600">
-                      亮点：{item.highlight}
-                    </p>
-                    <p className="mt-1 text-slate-600">
-                      建议：{item.improve}
-                    </p>
-                  </div>
-                ))}
+                {scoredItems.map((item) => {
+                  const tone = getScoreTone(item.score);
+                  return (
+                    <div
+                      key={item.question}
+                      className={cn(cardGhost, "p-3 text-sm")}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={cn(
+                            "inline-flex rounded-full px-2 py-0.5 text-xs font-semibold",
+                            tone.badge
+                          )}
+                        >
+                          得分 {item.score}
+                          {item.kind === "followup" && " · 追问"}
+                        </span>
+                        <span className="text-xs text-slate-400">评分记录</span>
+                      </div>
+                      <p className="mt-2 text-slate-700">{item.question}</p>
+                      <p className="mt-2 text-slate-600">
+                        亮点：{item.highlight}
+                      </p>
+                      <p className="mt-1 text-slate-600">
+                        建议：{item.improve}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <div className={cn(cardSoft, "p-4")}>
             <p className="text-xs font-semibold uppercase text-slate-500">
               演练报告
             </p>
@@ -1631,7 +1895,7 @@ export default function App() {
 
   const trainingContent = (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className={cn(cardBase, "p-5", hoverLift)}>
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase text-blue-600">
@@ -1652,10 +1916,11 @@ export default function App() {
                   key={tab.id}
                   type="button"
                   className={cn(
-                    "rounded-full border px-4 py-2 text-sm font-medium transition",
+                    pillBase,
+                    "px-4 py-2 text-sm font-semibold",
                     active
-                      ? "border-blue-600 bg-blue-600 text-white"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"
+                      ? "border-blue-600 bg-blue-600 text-white shadow-[0_12px_24px_rgba(37,99,235,0.25)]"
+                      : "text-slate-600 hover:border-blue-200"
                   )}
                   onClick={() => setTrainingTab(tab.id)}
                 >
@@ -1680,7 +1945,7 @@ export default function App() {
             </div>
             <button
               type="button"
-              className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition hover:border-blue-200"
+              className={cn(pillBase, "cursor-pointer")}
               onClick={() => setSidebarOpen((prev) => !prev)}
             >
               {sidebarOpen ? "收起" : "展开"}
@@ -1690,7 +1955,7 @@ export default function App() {
           {sidebarOpen ? (
             <section
               ref={formRef}
-              className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+              className={cn(cardBase, "p-5", hoverLift)}
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-semibold text-slate-900 font-['Rubik']">
@@ -1716,7 +1981,7 @@ export default function App() {
                   <button
                     key={sample.id}
                     type="button"
-                    className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-blue-200"
+                    className={cn(pillBase, "cursor-pointer")}
                     onClick={() => applySampleProfile(sample)}
                   >
                     {sample.label}
@@ -1724,7 +1989,7 @@ export default function App() {
                 ))}
                 <button
                   type="button"
-                  className="ml-auto rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500 transition hover:border-blue-200"
+                  className={cn(pillSubtle, "ml-auto cursor-pointer")}
                   onClick={resetForm}
                 >
                   清空表单
@@ -1732,7 +1997,7 @@ export default function App() {
               </div>
 
               {errorSummary.length > 0 && (
-                <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                <div className="mt-5 rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-600">
                   <p className="font-semibold">请补充以下信息：</p>
                   <ul className="mt-2 list-disc pl-5">
                     {errorSummary.map((item) => (
@@ -1767,12 +2032,12 @@ export default function App() {
                         <button
                           key={option}
                           type="button"
-                          className={cn(
-                            "rounded-xl border px-3 py-2 text-sm font-medium transition",
-                            active
-                              ? "border-blue-600 bg-blue-600 text-white"
-                              : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"
-                          )}
+                        className={cn(
+                          "rounded-xl border px-3 py-2 text-sm font-medium transition",
+                          active
+                            ? "border-blue-600 bg-blue-600 text-white"
+                            : "border-white/60 bg-white/75 text-slate-600 hover:border-blue-200"
+                        )}
                           onClick={() => setScale(option)}
                         >
                           {option}
@@ -1812,10 +2077,10 @@ export default function App() {
                           key={option}
                           type="button"
                           className={cn(
-                            "rounded-full border px-3 py-1 text-xs font-medium transition",
+                            pillBase,
                             active
-                              ? "border-blue-600 bg-blue-600 text-white"
-                              : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"
+                              ? "border-blue-600 bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]"
+                              : "text-slate-600 hover:border-blue-200"
                           )}
                           onClick={() => toggleFocus(option)}
                         >
@@ -1840,12 +2105,12 @@ export default function App() {
                           type="button"
                           role="radio"
                           aria-checked={active}
-                          className={cn(
-                            "rounded-xl border px-4 py-3 text-left text-sm transition",
-                            active
-                              ? "border-blue-600 bg-blue-600 text-white"
-                              : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"
-                          )}
+                        className={cn(
+                          "rounded-xl border px-4 py-3 text-left text-sm transition",
+                          active
+                            ? "border-blue-600 bg-blue-600 text-white"
+                            : "border-white/60 bg-white/75 text-slate-600 hover:border-blue-200"
+                        )}
                           onClick={() => setProduct(product.id)}
                         >
                           <p className="font-semibold">{product.name}</p>
@@ -1875,7 +2140,7 @@ export default function App() {
                   <div className="flex items-center justify-end text-xs text-slate-500">
                     <button
                       type="button"
-                      className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-500 transition hover:border-blue-200"
+                      className={cn(pillSubtle, "cursor-pointer")}
                       onClick={fetchNotesSuggestions}
                       disabled={notesLoading}
                     >
@@ -1891,7 +2156,7 @@ export default function App() {
                         <button
                           key={item}
                           type="button"
-                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 transition hover:border-blue-200"
+                          className={cn(pillBase, "cursor-pointer")}
                           onMouseDown={(event) => event.preventDefault()}
                           onClick={() => applyNoteSuggestion(item)}
                         >
@@ -1903,7 +2168,7 @@ export default function App() {
                 </div>
 
                 {submitError && (
-                  <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                  <div className="rounded-2xl border border-red-200 bg-red-50/90 px-3 py-2 text-sm text-red-600">
                     {submitError}
                   </div>
                 )}
@@ -1924,7 +2189,7 @@ export default function App() {
               </form>
             </section>
           ) : (
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className={cn(cardBase, "p-5", hoverLift)}>
               <p className="text-sm font-semibold text-slate-900">
                 商户信息已收起
               </p>
@@ -1935,7 +2200,7 @@ export default function App() {
                 {merchantSummary.map((item) => (
                   <div
                     key={item.label}
-                    className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2"
+                    className="flex items-center justify-between rounded-xl border border-slate-100/70 bg-white/70 px-3 py-2"
                   >
                     <span>{item.label}</span>
                     <span className="font-medium text-slate-700">
@@ -1964,7 +2229,7 @@ export default function App() {
 
   const casesContent = (
     <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className={cn(cardBase, "p-5", hoverLift)}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold uppercase text-slate-500">
@@ -1989,10 +2254,10 @@ export default function App() {
                     key={industry}
                     type="button"
                     className={cn(
-                      "rounded-full border px-3 py-1 text-xs font-medium transition",
+                      pillBase,
                       active
-                        ? "border-blue-600 bg-blue-600 text-white"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"
+                        ? "border-blue-600 bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]"
+                        : "text-slate-600 hover:border-blue-200"
                     )}
                     onClick={() => setCaseIndustry(industry)}
                   >
@@ -2012,10 +2277,10 @@ export default function App() {
                     key={district}
                     type="button"
                     className={cn(
-                      "rounded-full border px-3 py-1 text-xs font-medium transition",
+                      pillBase,
                       active
-                        ? "border-blue-600 bg-blue-600 text-white"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"
+                        ? "border-blue-600 bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]"
+                        : "text-slate-600 hover:border-blue-200"
                     )}
                     onClick={() => setCaseDistrict(district)}
                   >
@@ -2029,7 +2294,10 @@ export default function App() {
 
         <div className="mt-6 space-y-3">
           {filteredCases.length === 0 ? (
-            <p className="text-sm text-slate-500">暂无匹配案例。</p>
+            <EmptyState
+              title="暂无匹配案例"
+              description="尝试调整行业或商圈筛选条件。"
+            />
           ) : (
             filteredCases.map((item) => {
               const active = activeCase?.id === item.id;
@@ -2040,8 +2308,8 @@ export default function App() {
                   className={cn(
                     "w-full rounded-2xl border px-4 py-3 text-left text-sm transition",
                     active
-                      ? "border-blue-600 bg-blue-50"
-                      : "border-slate-200 bg-white hover:border-blue-200"
+                      ? "border-blue-600 bg-blue-50/80 shadow-[0_12px_24px_rgba(37,99,235,0.15)]"
+                      : "border-white/70 bg-white/80 shadow-[0_10px_20px_rgba(15,23,42,0.06)] hover:border-blue-200"
                   )}
                   onClick={() => setActiveCaseId(item.id)}
                 >
@@ -2062,7 +2330,7 @@ export default function App() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className={cn(cardBase, "p-5", hoverLift)}>
         {activeCase ? (
           <div className="space-y-4">
             <div>
@@ -2079,7 +2347,7 @@ export default function App() {
                 {activeCase.result}
               </p>
             </div>
-            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <div className={cn(cardSoft, "p-4")}>
               <p className="text-xs font-semibold text-slate-500">关键打法</p>
               <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
                 {activeCase.highlights.map((item) => (
@@ -2087,11 +2355,16 @@ export default function App() {
                 ))}
               </ul>
             </div>
-            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <div className={cn(cardSoft, "p-4")}>
               <p className="text-xs font-semibold text-slate-500">推荐话术</p>
               <p className="mt-2 text-sm text-slate-700">{activeCase.script}</p>
               <div className="mt-4 flex items-center justify-between">
-                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                <span
+                  className={cn(
+                    pillSubtle,
+                    "border-blue-100/80 bg-blue-100/90 text-blue-700 shadow-none"
+                  )}
+                >
                   {activeCase.industry}
                 </span>
                 <Button
@@ -2113,7 +2386,7 @@ export default function App() {
 
   const toolboxContent = (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className={cn(cardBase, "p-5", hoverLift)}>
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase text-slate-500">
@@ -2146,10 +2419,10 @@ export default function App() {
                 key={category}
                 type="button"
                 className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-medium transition",
+                  pillBase,
                   active
-                    ? "border-blue-600 bg-blue-600 text-white"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"
+                    ? "border-blue-600 bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]"
+                    : "text-slate-600 hover:border-blue-200"
                 )}
                 onClick={() => setToolboxCategory(category)}
               >
@@ -2167,10 +2440,15 @@ export default function App() {
             return (
               <div
                 key={item.id}
-                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                className={cn(cardSoft, "p-4", hoverLift)}
               >
                 <div className="flex items-center justify-between">
-                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                  <span
+                    className={cn(
+                      pillSubtle,
+                      "border-blue-100/80 bg-blue-100/90 text-blue-700 shadow-none"
+                    )}
+                  >
                     {item.category}
                   </span>
                   <button
@@ -2210,7 +2488,7 @@ export default function App() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className={cn(cardBase, "p-5", hoverLift)}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold uppercase text-slate-500">
@@ -2225,15 +2503,19 @@ export default function App() {
           </span>
         </div>
         {savedScripts.length === 0 ? (
-          <p className="mt-4 text-sm text-slate-500">
-            暂无收藏话术，可在话术建议中点击“保存话术”。
-          </p>
+          <div className="mt-4">
+            <EmptyState
+              tone="emerald"
+              title="暂无收藏话术"
+              description="在话术建议中点击“保存话术”即可沉淀。"
+            />
+          </div>
         ) : (
           <div className="mt-4 space-y-3">
             {savedScripts.map((item) => (
               <div
                 key={item.id}
-                className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm"
+                className="rounded-2xl border border-slate-100/70 bg-white/70 p-4 text-sm shadow-sm"
               >
                 <div className="flex items-center justify-between text-xs text-slate-500">
                   <span>{item.createdAt}</span>
@@ -2260,7 +2542,120 @@ export default function App() {
 
   const profileContent = (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className={cn(cardBase, "p-5", hoverLift)}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-slate-500">
+              账号与记忆
+            </p>
+            <p className="mt-1 text-sm text-slate-600">
+              账号登录后会自动记录对话记忆并保存为 Markdown。
+            </p>
+          </div>
+          {authUser && (
+            <button
+              type="button"
+              className="text-xs text-slate-500 transition hover:text-blue-600"
+              onClick={handleLogout}
+            >
+              退出登录
+            </button>
+          )}
+        </div>
+        {memoryNotice && (
+          <p className="mt-3 text-xs text-emerald-600">{memoryNotice}</p>
+        )}
+        {authUser ? (
+          <div className={cn(cardSoft, "mt-4 p-4 text-sm text-slate-700")}>
+            <p>
+              当前账号：<span className="font-semibold">{authUser}</span>
+            </p>
+            <p className="mt-2 text-xs text-slate-500">
+              记忆将保存到服务器目录 <span className="font-semibold">server/memory</span>
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {["login", "register"].map((mode) => {
+                  const active = authMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      className={cn(
+                        pillBase,
+                        active
+                          ? "border-blue-600 bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]"
+                          : "text-slate-600 hover:border-blue-200"
+                      )}
+                      onClick={() =>
+                        setAuthMode(mode as "login" | "register")
+                      }
+                    >
+                      {mode === "login" ? "登录" : "注册"}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="auth-username">账号</Label>
+                <Input
+                  id="auth-username"
+                  placeholder="3-16 位字母/数字/下划线"
+                  value={authForm.username}
+                  onChange={(event) =>
+                    setAuthForm((prev) => ({
+                      ...prev,
+                      username: event.target.value
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="auth-password">密码</Label>
+                <Input
+                  id="auth-password"
+                  type="password"
+                  placeholder="至少 6 位"
+                  value={authForm.password}
+                  onChange={(event) =>
+                    setAuthForm((prev) => ({
+                      ...prev,
+                      password: event.target.value
+                    }))
+                  }
+                />
+              </div>
+              {authError && (
+                <p className="text-xs text-red-600">{authError}</p>
+              )}
+              <Button
+                type="button"
+                className="w-full bg-blue-600 hover:bg-blue-500"
+                onClick={handleAuthSubmit}
+                disabled={authLoading}
+              >
+                {authLoading
+                  ? "处理中..."
+                  : authMode === "login"
+                    ? "登录并开始记忆"
+                    : "注册并开始记忆"}
+              </Button>
+            </div>
+            <div className={cn(cardSoft, "p-4 text-sm text-slate-600")}>
+              <p className="font-semibold text-slate-700">记忆类型说明</p>
+              <ul className="mt-2 space-y-2 text-xs">
+                <li>流水账：每次对话的完整记录。</li>
+                <li>持久记忆：AI 精炼后的关键要点。</li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className={cn(cardBase, "p-5", hoverLift)}>
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase text-slate-500">
@@ -2271,7 +2666,12 @@ export default function App() {
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-blue-700">
+            <span
+              className={cn(
+                pillSubtle,
+                "border-blue-100/80 bg-blue-100/90 text-blue-700 shadow-none"
+              )}
+            >
               平均得分 {averageScore}
             </span>
             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
@@ -2280,19 +2680,19 @@ export default function App() {
           </div>
         </div>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className={cn(cardSoft, "p-4")}>
             <p className="text-xs text-slate-500">累计话术生成</p>
             <p className="mt-2 text-2xl font-semibold text-slate-900">
               {history.length}
             </p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className={cn(cardSoft, "p-4")}>
             <p className="text-xs text-slate-500">演练评分记录</p>
             <p className="mt-2 text-2xl font-semibold text-slate-900">
               {scoredItems.length}
             </p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className={cn(cardSoft, "p-4")}>
             <p className="text-xs text-slate-500">平均得分</p>
             <p className="mt-2 text-2xl font-semibold text-slate-900">
               {averageScore}
@@ -2301,13 +2701,13 @@ export default function App() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className={cn(cardBase, "p-5", hoverLift)}>
         <p className="text-xs font-semibold uppercase text-slate-500">
           成就系统
         </p>
         <div className="mt-4 space-y-4">
           {achievementTracks.map((track) => (
-            <div key={track.id} className="rounded-2xl bg-slate-50 p-4">
+            <div key={track.id} className={cn(cardSoft, "p-4")}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-semibold text-slate-800">{track.title}</p>
@@ -2330,24 +2730,44 @@ export default function App() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className={cn(cardBase, "p-5", hoverLift)}>
         <p className="text-xs font-semibold uppercase text-slate-500">
           个性化设置
         </p>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <label
+            className={cn(
+              cardGhost,
+              "flex items-center justify-between px-4 py-3 text-sm text-slate-700"
+            )}
+          >
             <span>训练提醒通知</span>
             <input type="checkbox" defaultChecked />
           </label>
-          <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <label
+            className={cn(
+              cardGhost,
+              "flex items-center justify-between px-4 py-3 text-sm text-slate-700"
+            )}
+          >
             <span>演练完成后自动生成报告</span>
             <input type="checkbox" defaultChecked />
           </label>
-          <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <label
+            className={cn(
+              cardGhost,
+              "flex items-center justify-between px-4 py-3 text-sm text-slate-700"
+            )}
+          >
             <span>开启 AI 指导提示</span>
             <input type="checkbox" defaultChecked />
           </label>
-          <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <label
+            className={cn(
+              cardGhost,
+              "flex items-center justify-between px-4 py-3 text-sm text-slate-700"
+            )}
+          >
             <span>保存对话历史</span>
             <input type="checkbox" defaultChecked />
           </label>
@@ -2358,7 +2778,7 @@ export default function App() {
 
   const dashboardContent = (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className={cn(cardBase, "p-6", hoverLift)}>
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase text-blue-600">
@@ -2391,7 +2811,8 @@ export default function App() {
           </div>
         </div>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className={cn(cardSoft, "relative overflow-hidden p-4")}>
+            <div className="pointer-events-none absolute -right-6 top-0 h-24 w-24 rounded-full bg-blue-200/50 blur-2xl" />
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
               <Icon name="training" className="h-4 w-4 text-blue-600" />
               快速开始训练
@@ -2404,7 +2825,7 @@ export default function App() {
                 <button
                   key={sample.id}
                   type="button"
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-blue-200"
+                  className={cn(pillBase, "cursor-pointer")}
                   onClick={() => handleSampleStart(sample)}
                 >
                   {sample.label}
@@ -2412,7 +2833,8 @@ export default function App() {
               ))}
             </div>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className={cn(cardSoft, "relative overflow-hidden p-4")}>
+            <div className="pointer-events-none absolute -right-6 top-0 h-24 w-24 rounded-full bg-emerald-200/50 blur-2xl" />
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
               <Icon name="trend" className="h-4 w-4 text-blue-600" />
               个性化指导
@@ -2429,7 +2851,8 @@ export default function App() {
               ))}
             </ul>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className={cn(cardSoft, "relative overflow-hidden p-4")}>
+            <div className="pointer-events-none absolute -right-6 top-0 h-24 w-24 rounded-full bg-indigo-200/40 blur-2xl" />
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
               <Icon name="bookmark" className="h-4 w-4 text-blue-600" />
               保存优秀话术
@@ -2452,7 +2875,8 @@ export default function App() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className={cn(cardGhost, "relative overflow-hidden p-4", hoverLift)}>
+          <div className="pointer-events-none absolute -right-10 top-2 h-20 w-20 rounded-full bg-blue-100/70 blur-2xl" />
           <p className="text-xs text-slate-500">话术生成</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">
             {history.length}
@@ -2461,7 +2885,8 @@ export default function App() {
             最近生成 {history[history.length - 1]?.createdAt ?? "暂无"}
           </p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className={cn(cardGhost, "relative overflow-hidden p-4", hoverLift)}>
+          <div className="pointer-events-none absolute -right-10 top-2 h-20 w-20 rounded-full bg-emerald-100/70 blur-2xl" />
           <p className="text-xs text-slate-500">演练评分</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">
             {averageScore}
@@ -2470,7 +2895,8 @@ export default function App() {
             已完成 {scoredItems.length} 条评分
           </p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className={cn(cardGhost, "relative overflow-hidden p-4", hoverLift)}>
+          <div className="pointer-events-none absolute -right-10 top-2 h-20 w-20 rounded-full bg-blue-200/40 blur-2xl" />
           <p className="text-xs text-slate-500">收藏话术</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">
             {savedScripts.length}
@@ -2479,7 +2905,8 @@ export default function App() {
             便于复用与分享
           </p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className={cn(cardGhost, "relative overflow-hidden p-4", hoverLift)}>
+          <div className="pointer-events-none absolute -right-10 top-2 h-20 w-20 rounded-full bg-indigo-200/40 blur-2xl" />
           <p className="text-xs text-slate-500">画像完成度</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">
             {completion.percent}%
@@ -2491,7 +2918,7 @@ export default function App() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className={cn(cardBase, "p-5", hoverLift)}>
           <div className="flex items-center justify-between">
             <h3 className="text-base font-semibold text-slate-900 font-['Rubik']">
               最近训练记录
@@ -2505,13 +2932,19 @@ export default function App() {
             </button>
           </div>
           {recentHistory.length === 0 ? (
-            <p className="mt-4 text-sm text-slate-500">暂无记录。</p>
+            <div className="mt-4">
+              <EmptyState
+                tone="slate"
+                title="暂无训练记录"
+                description="完成一次话术生成即可在此查看记录。"
+              />
+            </div>
           ) : (
             <div className="mt-4 space-y-3">
               {recentHistory.map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm"
+                  className="rounded-2xl border border-slate-100/70 bg-white/70 p-3 text-sm shadow-sm"
                 >
                   <div className="flex items-center justify-between text-xs text-slate-500">
                     <span>{item.createdAt}</span>
@@ -2526,7 +2959,7 @@ export default function App() {
           )}
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className={cn(cardBase, "p-5", hoverLift)}>
           <p className="text-xs font-semibold uppercase text-slate-500">
             进度概览
           </p>
@@ -2536,7 +2969,7 @@ export default function App() {
                 <span>画像完善度</span>
                 <span>{completion.percent}%</span>
               </div>
-              <div className="mt-2 h-2 w-full rounded-full bg-slate-100">
+              <div className="mt-2 h-2 w-full rounded-full bg-slate-100/70">
                 <div
                   className="h-2 rounded-full bg-blue-600"
                   style={{ width: `${completion.percent}%` }}
@@ -2548,7 +2981,7 @@ export default function App() {
                 <span>演练平均得分</span>
                 <span>{averageScore}</span>
               </div>
-              <div className="mt-2 h-2 w-full rounded-full bg-slate-100">
+              <div className="mt-2 h-2 w-full rounded-full bg-slate-100/70">
                 <div
                   className="h-2 rounded-full bg-emerald-500"
                   style={{ width: `${Math.min(averageScore, 100)}%` }}
@@ -2560,7 +2993,7 @@ export default function App() {
                 <span>收藏话术</span>
                 <span>{savedScripts.length} 条</span>
               </div>
-              <div className="mt-2 h-2 w-full rounded-full bg-slate-100">
+              <div className="mt-2 h-2 w-full rounded-full bg-slate-100/70">
                 <div
                   className="h-2 rounded-full bg-blue-400"
                   style={{
@@ -2584,10 +3017,19 @@ export default function App() {
   }[activePage];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-slate-200 bg-white px-6 py-8 md:flex">
+    <div className="relative min-h-screen overflow-hidden bg-transparent text-slate-900">
+      <div className="pointer-events-none absolute -top-24 right-0 h-72 w-72 rounded-full bg-blue-200/40 blur-3xl" />
+      <div className="pointer-events-none absolute left-8 top-24 h-60 w-60 rounded-full bg-emerald-200/40 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-32 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-indigo-200/30 blur-3xl" />
+
+      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-white/60 bg-white/70 px-6 py-8 shadow-[0_20px_60px_rgba(15,23,42,0.12)] ring-1 ring-white/60 backdrop-blur-xl md:flex">
         <div>
-          <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+          <span
+            className={cn(
+              pillBase,
+              "border-blue-100/80 bg-blue-100/90 text-blue-700 shadow-none"
+            )}
+          >
             PitchPerfect
           </span>
           <h1 className="mt-3 text-lg font-semibold text-slate-900">
@@ -2605,10 +3047,10 @@ export default function App() {
                 key={item.id}
                 type="button"
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-sm font-medium transition",
+                  "flex w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-2 text-left text-sm font-medium transition",
                   active
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-slate-600 hover:bg-slate-100"
+                    ? "border-white/80 bg-white/80 text-blue-700 shadow-[0_12px_24px_rgba(15,23,42,0.08)]"
+                    : "text-slate-600 hover:border-white/60 hover:bg-white/70"
                 )}
                 onClick={() => setActivePage(item.id)}
               >
@@ -2627,7 +3069,7 @@ export default function App() {
             );
           })}
         </nav>
-        <div className="mt-auto rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className={cn(cardSoft, "mt-auto p-4")}>
           <p className="text-xs font-semibold text-slate-600">快速入口</p>
           <p className="mt-2 text-sm text-slate-500">
             立即开始一次对话式训练。
@@ -2642,8 +3084,8 @@ export default function App() {
         </div>
       </aside>
 
-      <div className="md:pl-64">
-        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
+      <div className="relative z-10 md:pl-64">
+        <header className="sticky top-0 z-20 border-b border-white/60 bg-white/75 shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
             <div>
               <p className="text-xs font-semibold uppercase text-slate-500">
@@ -2659,7 +3101,20 @@ export default function App() {
                   开始训练
                 </Button>
               )}
-              <div className="hidden items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-500 sm:flex">
+              {authUser ? (
+                <span className={cn(pillSubtle, "hidden sm:inline-flex")}>
+                  已登录：{authUser}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-blue-600 transition hover:text-blue-500"
+                  onClick={() => setActivePage("profile")}
+                >
+                  登录/注册
+                </button>
+              )}
+              <div className={cn(pillSubtle, "hidden gap-2 sm:flex")}>
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
                 实时在线
               </div>
@@ -2672,7 +3127,7 @@ export default function App() {
         </main>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around border-t border-slate-200 bg-white/95 px-4 py-2 md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around border-t border-white/60 bg-white/80 px-4 py-2 shadow-[0_-12px_30px_rgba(15,23,42,0.12)] backdrop-blur md:hidden">
         {navItems.map((item) => {
           const active = activePage === item.id;
           return (
@@ -2680,8 +3135,10 @@ export default function App() {
               key={item.id}
               type="button"
               className={cn(
-                "flex flex-col items-center gap-1 rounded-xl px-3 py-2 text-xs transition",
-                active ? "text-blue-600" : "text-slate-500"
+                "flex flex-col items-center gap-1 rounded-xl border border-transparent px-3 py-2 text-xs transition",
+                active
+                  ? "border-white/80 bg-white/80 text-blue-600 shadow-[0_8px_20px_rgba(15,23,42,0.12)]"
+                  : "text-slate-500 hover:border-white/70 hover:bg-white/70"
               )}
               onClick={() => setActivePage(item.id)}
             >
