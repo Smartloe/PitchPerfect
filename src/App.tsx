@@ -1117,33 +1117,54 @@ export default function App() {
           </div>
         )}
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase text-slate-500">
-                商户提问
-              </p>
-              <p className="mt-2 text-sm text-slate-800">
-                {drillItems[drillIndex]?.question ||
-                  "请选择意向产品并开始演练"}
-              </p>
-              {drillItems[drillIndex]?.kind === "followup" && (
-                <span className="mt-2 inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">
-                  补充追问
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span>对话流</span>
+              {drillActive && (
+                <span>
+                  当前问题 {Math.min(drillIndex + 1, drillItems.length)}/
+                  {drillItems.length}
                 </span>
               )}
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="drill-answer">你的回答</Label>
-              <Textarea
-                id="drill-answer"
-                rows={4}
-                placeholder="用 2-3 句回应商户疑义，并给出推进动作..."
-                value={drillAnswer}
-                onChange={(event) => setDrillAnswer(event.target.value)}
-              />
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="mt-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="mt-1 h-8 w-8 rounded-full bg-slate-900 text-center text-xs font-semibold leading-8 text-white">
+                  商
+                </div>
+                <div className="max-w-[80%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                  <p>
+                    {drillItems[drillIndex]?.question ||
+                      "请选择意向产品并开始演练"}
+                  </p>
+                  {drillItems[drillIndex]?.kind === "followup" && (
+                    <span className="mt-2 inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">
+                      补充追问
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-start justify-end gap-3">
+                <div className="max-w-[80%] rounded-2xl bg-slate-900 px-4 py-3 text-sm text-white shadow-sm">
+                  <p className="text-xs text-slate-300">你的回答</p>
+                  <Textarea
+                    id="drill-answer"
+                    rows={3}
+                    className="mt-2 bg-transparent text-white placeholder:text-slate-400 focus:border-slate-500 focus:ring-slate-500"
+                    placeholder="用 2-3 句回应商户疑义，并给出推进动作..."
+                    value={drillAnswer}
+                    onChange={(event) => setDrillAnswer(event.target.value)}
+                  />
+                </div>
+                <div className="mt-1 h-8 w-8 rounded-full bg-blue-600 text-center text-xs font-semibold leading-8 text-white">
+                  我
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <span className="text-xs text-slate-400">
+                  建议回答包括价值、案例与下一步动作
+                </span>
                 <Button
                   type="button"
                   onClick={submitDrillAnswer}
@@ -1151,9 +1172,6 @@ export default function App() {
                 >
                   {drillLoading ? "评分中..." : "提交并评分"}
                 </Button>
-                <span className="text-xs text-slate-400">
-                  建议回答包括价值、案例与下一步动作
-                </span>
               </div>
             </div>
           </div>
