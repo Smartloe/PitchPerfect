@@ -37,6 +37,8 @@ npm install
 LONGCAT_API_KEY=你的密钥
 ALLOWED_ORIGINS=http://localhost:5173
 PORT=8787
+RATE_LIMIT_MAX=30
+RATE_LIMIT_WINDOW_MS=60000
 ```
 
 3. 启动服务
@@ -58,12 +60,60 @@ http://localhost:5173/
 - `npm run dev:server`：仅启动服务端代理
 - `npm run build`：构建前端
 
+## 生产部署（示例）
+
+### 方案 A：静态资源 + Node 服务端代理
+
+1. 构建前端
+```
+npm run build
+```
+
+2. 启动服务端代理（建议使用进程管理器）
+```
+node server/index.js
+# 或使用 pm2
+pm2 start server/index.js --name pitchperfect-proxy
+```
+
+3. 使用 Nginx 代理 `/api`，静态目录指向 `dist/`
+```
+server {
+  listen 80;
+  server_name your-domain.com;
+
+  location /api/ {
+    proxy_pass http://127.0.0.1:8787;
+  }
+
+  location / {
+    root /path/to/dist;
+    try_files $uri /index.html;
+  }
+}
+```
+
+### 方案 B：仅服务端代理 + 前端部署在静态托管
+
+- 静态页面部署到任意 CDN/对象存储
+- 反向代理 `/api` 到你的 Node 服务端
+
 ## 服务端代理与反爬
 
 - 前端统一请求 `/api/chat`，不暴露 LongCat API 域名与密钥
 - 服务端仅从 `LONGCAT_API_KEY` 读取密钥
 - Origin 白名单校验（默认仅 `http://localhost:5173`）
-- IP 频率限制：默认 30 次/分钟
+- IP 频率限制：默认 30 次/分钟，可通过环境变量调整
+
+### 限流调优
+
+```
+RATE_LIMIT_MAX=30
+RATE_LIMIT_WINDOW_MS=60000
+```
+
+- `RATE_LIMIT_MAX`：窗口内最大请求数
+- `RATE_LIMIT_WINDOW_MS`：窗口时长（毫秒）
 
 ## API 说明
 

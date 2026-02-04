@@ -9,8 +9,8 @@ const PORT = Number(process.env.PORT || 8787);
 const API_URL = "https://api.longcat.chat/openai/v1/chat/completions";
 const API_KEY = process.env.LONGCAT_API_KEY;
 
-const RATE_WINDOW_MS = 60_000;
-const RATE_MAX = 30;
+const RATE_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
+const RATE_MAX = Number(process.env.RATE_LIMIT_MAX || 30);
 const rateStore = new Map();
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:5173")
