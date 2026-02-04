@@ -17,7 +17,10 @@ import type {
   ProductId,
   ScriptSuggestion
 } from "./types/salesAssistant";
-import { generateScriptAdvice } from "./lib/salesAssistantClient";
+import {
+  generateNotesSuggestions,
+  generateScriptAdvice
+} from "./lib/salesAssistantClient";
 
 const flowSteps = [
   {
@@ -128,6 +131,10 @@ export default function App() {
   const [copyMessage, setCopyMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [notesSuggestions, setNotesSuggestions] = useState<string[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesError, setNotesError] = useState("");
+  const [notesVisible, setNotesVisible] = useState(false);
   const historyRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -161,6 +168,11 @@ export default function App() {
       behavior: "smooth"
     });
   }, [history]);
+
+  useEffect(() => {
+    setNotesSuggestions([]);
+    setNotesError("");
+  }, [form.industry, form.productId]);
 
   useEffect(() => {
     if (!successMessage) return;
@@ -258,6 +270,49 @@ export default function App() {
 
   const renderValue = (value: string) => {
     return value.trim() ? value : "待补充";
+  };
+
+  const fetchNotesSuggestions = async () => {
+    if (!form.industry.trim() || !form.productId) {
+      setNotesError("请先填写行业并选择意向产品");
+      return;
+    }
+    setNotesLoading(true);
+    setNotesError("");
+    try {
+      const suggestions = await generateNotesSuggestions({
+        industry: form.industry,
+        productId: form.productId
+      });
+      setNotesSuggestions(suggestions);
+      if (suggestions.length === 0) {
+        setNotesError("未生成可用建议，请稍后重试");
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "生成失败，请稍后重试";
+      setNotesError(message);
+    } finally {
+      setNotesLoading(false);
+    }
+  };
+
+  const handleNotesFocus = () => {
+    setNotesVisible(true);
+    if (notesSuggestions.length === 0 && !notesLoading) {
+      fetchNotesSuggestions();
+    }
+  };
+
+  const handleNotesBlur = () => {
+    window.setTimeout(() => setNotesVisible(false), 150);
+  };
+
+  const applyNoteSuggestion = (text: string) => {
+    setForm((prev) => ({
+      ...prev,
+      notes: prev.notes ? `${prev.notes}\n${text}` : text
+    }));
   };
 
   const buildCopyText = (suggestion: ScriptSuggestion) => {
@@ -560,7 +615,38 @@ export default function App() {
                 placeholder="记录商户特别关注的点或已有痛点..."
                 value={form.notes}
                 onChange={(event) => handleChange("notes", event.target.value)}
+                onFocus={handleNotesFocus}
+                onBlur={handleNotesBlur}
               />
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span>AI 补充建议（点击输入框自动生成）</span>
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-500 transition hover:border-slate-400"
+                  onClick={fetchNotesSuggestions}
+                  disabled={notesLoading}
+                >
+                  {notesLoading ? "生成中..." : "重新生成"}
+                </button>
+              </div>
+              {notesError && (
+                <p className="text-xs text-red-500">{notesError}</p>
+              )}
+              {notesVisible && notesSuggestions.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {notesSuggestions.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 transition hover:border-slate-400"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => applyNoteSuggestion(item)}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {submitError && (

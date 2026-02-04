@@ -58,3 +58,43 @@ export async function generateScriptAdvice(
     rawText: content
   };
 }
+
+function buildNotesPrompt(industry: string, productId: string) {
+  return `你是一名服务零售销售助手。请基于行业与意向产品，生成 3-5 条“补充说明”建议，帮助新人销售快速补充商户背景。\n\n要求：\n1. 输出 JSON 数组（不要加额外文字/Markdown）\n2. 每条建议 12-20 个字，口吻专业\n3. 与行业与产品强相关\n\n行业：${industry}\n意向产品：${productId}\n`;
+}
+
+export async function generateNotesSuggestions(options: {
+  industry: string;
+  productId: string;
+}): Promise<string[]> {
+  const content = await createChatCompletion({
+    messages: [
+      {
+        role: "user",
+        content: buildNotesPrompt(options.industry, options.productId)
+      }
+    ]
+  });
+
+  const cleaned = content
+    .trim()
+    .replace(/^```json/i, "")
+    .replace(/^```/i, "")
+    .replace(/```$/, "")
+    .trim();
+
+  try {
+    const payload = JSON.parse(cleaned);
+    if (Array.isArray(payload)) {
+      return payload.map((item) => String(item)).filter(Boolean).slice(0, 6);
+    }
+  } catch (error) {
+    // fall through
+  }
+
+  return cleaned
+    .split(/\n+/)
+    .map((line) => line.replace(/^[-*\\d.\\s]+/, "").trim())
+    .filter(Boolean)
+    .slice(0, 6);
+}
