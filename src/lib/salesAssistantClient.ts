@@ -1,5 +1,5 @@
 import type { ScriptRequest, ScriptResponse, ScriptSuggestion } from "../types/salesAssistant";
-import { createChatCompletion } from "./longcatClient";
+import { createChatCompletion, streamChatCompletion } from "./longcatClient";
 
 const FALLBACK_SUGGESTION: ScriptSuggestion = {
   coreValue: "暂无建议",
@@ -211,17 +211,8 @@ function buildScorePrompt(options: {
   return `你是销售教练。请对销售回答进行评分并给出简短反馈。\n\n要求：\n1. 只输出 JSON，不要额外文字\n2. 字段：score(0-100), feedback(一句话), highlight(一句话), improve(一句话)\n3. 评分关注：是否回应疑义、是否量化价值、是否推动下一步\n\n行业：${options.industry}\n意向产品：${options.productId}\n商户问题：${options.question}\n销售回答：${options.answer}\n`;
 }
 
-export async function scoreSalesAnswer(options: {
-  industry: string;
-  productId: string;
-  question: string;
-  answer: string;
-}): Promise<DrillScore> {
-  const content = await createChatCompletion({
-    messages: [{ role: "user", content: buildScorePrompt(options) }]
-  });
-
-  const cleaned = content
+function parseDrillScore(rawText: string): DrillScore {
+  const cleaned = rawText
     .trim()
     .replace(/^```json/i, "")
     .replace(/^```/i, "")
@@ -245,6 +236,38 @@ export async function scoreSalesAnswer(options: {
       improve: "补充价值与推进动作"
     };
   }
+}
+
+export async function scoreSalesAnswer(options: {
+  industry: string;
+  productId: string;
+  question: string;
+  answer: string;
+}): Promise<DrillScore> {
+  const content = await createChatCompletion({
+    messages: [{ role: "user", content: buildScorePrompt(options) }]
+  });
+
+  return parseDrillScore(content);
+}
+
+export async function scoreSalesAnswerStream(options: {
+  industry: string;
+  productId: string;
+  question: string;
+  answer: string;
+  onChunk?: (chunk: string) => void;
+}): Promise<DrillScore> {
+  let full = "";
+  const content = await streamChatCompletion({
+    messages: [{ role: "user", content: buildScorePrompt(options) }],
+    onChunk: (chunk) => {
+      full += chunk;
+      options.onChunk?.(chunk);
+    }
+  });
+
+  return parseDrillScore(content || full);
 }
 
 function buildReportPrompt(options: {

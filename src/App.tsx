@@ -22,7 +22,7 @@ import {
   generateDrillQuestions,
   generateDrillReport,
   generateFollowUpQuestions,
-  scoreSalesAnswer,
+  scoreSalesAnswerStream,
   generateScriptAdvice
 } from "./lib/salesAssistantClient";
 
@@ -168,6 +168,7 @@ export default function App() {
   const [drillQuestionSource, setDrillQuestionSource] = useState<
     "ai" | "default" | ""
   >("");
+  const [drillStreamText, setDrillStreamText] = useState("");
   const historyRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -463,13 +464,17 @@ export default function App() {
     const currentItem = drillItems[drillIndex];
     const question = currentItem?.question || "";
     setDrillLoading(true);
+    setDrillStreamText("");
     setDrillError("");
     try {
-      const score = await scoreSalesAnswer({
+      const score = await scoreSalesAnswerStream({
         industry: form.industry,
         productId: form.productId,
         question,
-        answer: drillAnswer.trim()
+        answer: drillAnswer.trim(),
+        onChunk: (chunk) => {
+          setDrillStreamText((prev) => prev + chunk);
+        }
       });
       const baseItems = drillItems.map((item, index) =>
         index === drillIndex
@@ -1081,12 +1086,12 @@ export default function App() {
               </p>
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-500">
-              {drillQuestions.length > 0 && (
-                <span>
-                  进度 {Math.min(drillIndex + 1, drillQuestions.length)}/
-                  {drillQuestions.length}
-                </span>
-              )}
+            {drillItems.length > 0 && (
+              <span>
+                进度 {Math.min(drillIndex + 1, drillItems.length)}/
+                {drillItems.length}
+              </span>
+            )}
               {drillQuestionSource && (
                 <span>
                   问题来源：{drillQuestionSource === "ai" ? "AI" : "默认"}
@@ -1158,6 +1163,14 @@ export default function App() {
               <p className="text-xs font-semibold uppercase text-slate-500">
                 评分记录
               </p>
+              {drillLoading && (
+                <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3 text-sm">
+                  <p className="text-xs text-slate-400">AI 实时反馈</p>
+                  <p className="mt-2 whitespace-pre-line text-slate-700">
+                    {drillStreamText || "生成中..."}
+                  </p>
+                </div>
+              )}
               {drillItems.filter((item) => item.score !== undefined).length ===
               0 ? (
                 <p className="mt-2 text-sm text-slate-500">
@@ -1174,6 +1187,7 @@ export default function App() {
                       >
                         <p className="text-xs text-slate-400">
                           得分 {item.score}
+                          {item.kind === "followup" && " · 追问"}
                         </p>
                         <p className="mt-1 text-slate-700">{item.question}</p>
                         <p className="mt-2 text-slate-600">

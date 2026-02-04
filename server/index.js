@@ -122,6 +122,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    const stream = Boolean(body?.stream);
     const response = await fetch(API_URL, {
       method: "POST",
       headers: {
@@ -131,19 +132,40 @@ const server = http.createServer(async (req, res) => {
       body: JSON.stringify({
         model: model || "LongCat-Flash-Chat",
         messages,
-        stream: false
+        stream
       })
     });
 
-    const data = await response.json();
     if (!response.ok) {
+      const errorText = await response.text();
       sendJson(res, response.status, {
-        error: data?.error?.message || "Upstream error",
+        error: errorText || "Upstream error",
         upstream_status: response.status
       });
       return;
     }
 
+    if (stream) {
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive"
+      });
+      const reader = response.body?.getReader();
+      if (!reader) {
+        res.end();
+        return;
+      }
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        res.write(Buffer.from(value));
+      }
+      res.end();
+      return;
+    }
+
+    const data = await response.json();
     sendJson(res, 200, data);
   } catch (error) {
     sendJson(res, 500, { error: "Server Error" });
