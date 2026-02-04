@@ -171,6 +171,7 @@ export default function App() {
   const [drillStreamText, setDrillStreamText] = useState("");
   const historyRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
+  const drillChatRef = useRef<HTMLDivElement>(null);
 
   const selectedProduct = useMemo(
     () => productCatalog.find((item) => item.id === form.productId),
@@ -202,6 +203,14 @@ export default function App() {
       behavior: "smooth"
     });
   }, [history]);
+
+  useEffect(() => {
+    if (!drillChatRef.current) return;
+    drillChatRef.current.scrollTo({
+      top: drillChatRef.current.scrollHeight,
+      behavior: "smooth"
+    });
+  }, [drillItems, drillIndex, drillLoading]);
 
   useEffect(() => {
     setNotesSuggestions([]);
@@ -619,6 +628,10 @@ export default function App() {
     const field = key as keyof FormState;
     return requiredFieldLabels[field];
   });
+
+  const visibleDrillItems = drillActive
+    ? drillItems.slice(0, drillIndex + 1)
+    : drillItems;
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-12">
@@ -1121,46 +1134,70 @@ export default function App() {
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-center justify-between text-xs text-slate-500">
               <span>对话流</span>
-              {drillActive && (
+              {drillItems.length > 0 && (
                 <span>
                   当前问题 {Math.min(drillIndex + 1, drillItems.length)}/
                   {drillItems.length}
                 </span>
               )}
             </div>
-            <div className="mt-4 space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="mt-1 h-8 w-8 rounded-full bg-slate-900 text-center text-xs font-semibold leading-8 text-white">
-                  商
-                </div>
-                <div className="max-w-[80%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-                  <p>
-                    {drillItems[drillIndex]?.question ||
-                      "请选择意向产品并开始演练"}
-                  </p>
-                  {drillItems[drillIndex]?.kind === "followup" && (
-                    <span className="mt-2 inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">
-                      补充追问
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-start justify-end gap-3">
-                <div className="max-w-[80%] rounded-2xl bg-slate-900 px-4 py-3 text-sm text-white shadow-sm">
-                  <p className="text-xs text-slate-300">你的回答</p>
-                  <Textarea
-                    id="drill-answer"
-                    rows={3}
-                    className="mt-2 bg-transparent text-white placeholder:text-slate-400 focus:border-slate-500 focus:ring-slate-500"
-                    placeholder="用 2-3 句回应商户疑义，并给出推进动作..."
-                    value={drillAnswer}
-                    onChange={(event) => setDrillAnswer(event.target.value)}
-                  />
-                </div>
-                <div className="mt-1 h-8 w-8 rounded-full bg-blue-600 text-center text-xs font-semibold leading-8 text-white">
-                  我
-                </div>
-              </div>
+            <div
+              ref={drillChatRef}
+              className="mt-4 max-h-[420px] space-y-4 overflow-y-auto pr-2"
+            >
+              {visibleDrillItems.length === 0 ? (
+                <p className="text-sm text-slate-500">
+                  点击“开始演练”生成对话内容。
+                </p>
+              ) : (
+                visibleDrillItems.map((item, index) => (
+                  <div key={`${item.question}-${index}`} className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1 h-8 w-8 rounded-full bg-slate-900 text-center text-xs font-semibold leading-8 text-white">
+                        商
+                      </div>
+                      <div className="max-w-[80%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                        <p>{item.question}</p>
+                        {item.kind === "followup" && (
+                          <span className="mt-2 inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">
+                            补充追问
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {item.answer && (
+                      <div className="flex items-start justify-end gap-3">
+                        <div className="max-w-[80%] rounded-2xl bg-slate-900 px-4 py-3 text-sm text-white shadow-sm">
+                          <p className="text-xs text-slate-300">你的回答</p>
+                          <p className="mt-2 whitespace-pre-line text-white">
+                            {item.answer}
+                          </p>
+                          {item.score !== undefined && (
+                            <p className="mt-2 text-xs text-slate-300">
+                              评分 {item.score} · {item.highlight}
+                            </p>
+                          )}
+                        </div>
+                        <div className="mt-1 h-8 w-8 rounded-full bg-blue-600 text-center text-xs font-semibold leading-8 text-white">
+                          我
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="mt-4 space-y-2">
+              <Label htmlFor="drill-answer">你的回答</Label>
+              <Textarea
+                id="drill-answer"
+                rows={3}
+                className="bg-white"
+                placeholder="用 2-3 句回应商户疑义，并给出推进动作..."
+                value={drillAnswer}
+                onChange={(event) => setDrillAnswer(event.target.value)}
+                disabled={!drillActive}
+              />
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <span className="text-xs text-slate-400">
                   建议回答包括价值、案例与下一步动作
