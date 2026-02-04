@@ -19,6 +19,8 @@ import type {
 } from "./types/salesAssistant";
 import {
   generateNotesSuggestions,
+  generateDrillReport,
+  scoreSalesAnswer,
   generateScriptAdvice
 } from "./lib/salesAssistantClient";
 
@@ -103,6 +105,22 @@ type HistoryItem = {
   suggestion: ScriptSuggestion;
 };
 
+type DrillItem = {
+  question: string;
+  answer: string;
+  score?: number;
+  feedback?: string;
+  highlight?: string;
+  improve?: string;
+};
+
+type DrillReport = {
+  summary: string;
+  strengths: string[];
+  improvements: string[];
+  nextSteps: string[];
+};
+
 const requiredFieldLabels: Record<keyof FormState, string> = {
   industry: "行业",
   scale: "规模",
@@ -135,6 +153,14 @@ export default function App() {
   const [notesLoading, setNotesLoading] = useState(false);
   const [notesError, setNotesError] = useState("");
   const [notesVisible, setNotesVisible] = useState(false);
+  const [drillActive, setDrillActive] = useState(false);
+  const [drillQuestions, setDrillQuestions] = useState<string[]>([]);
+  const [drillIndex, setDrillIndex] = useState(0);
+  const [drillAnswer, setDrillAnswer] = useState("");
+  const [drillItems, setDrillItems] = useState<DrillItem[]>([]);
+  const [drillLoading, setDrillLoading] = useState(false);
+  const [drillError, setDrillError] = useState("");
+  const [drillReport, setDrillReport] = useState<DrillReport | null>(null);
   const historyRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -313,6 +339,121 @@ export default function App() {
       ...prev,
       notes: prev.notes ? `${prev.notes}\n${text}` : text
     }));
+  };
+
+  const startDrill = () => {
+    if (!form.industry.trim() || !selectedProduct) {
+      setDrillError("请先填写行业并选择意向产品");
+      return;
+    }
+    const questions = selectedProduct.questions.slice(0, 7);
+    setDrillQuestions(questions);
+    setDrillItems(questions.map((question) => ({ question, answer: "" })));
+    setDrillIndex(0);
+    setDrillAnswer("");
+    setDrillActive(true);
+    setDrillReport(null);
+    setDrillError("");
+  };
+
+  const computeFallbackReport = (items: DrillItem[]): DrillReport => {
+    const scored = items.filter((item) => typeof item.score === "number");
+    const avg = scored.length
+      ? Math.round(
+          scored.reduce((sum, item) => sum + (item.score ?? 0), 0) /
+            scored.length
+        )
+      : 0;
+    const sorted = [...scored].sort(
+      (a, b) => (b.score ?? 0) - (a.score ?? 0)
+    );
+    const strengths = sorted.slice(0, 2).map((item) => {
+      return `在“${item.question}”的回答得分 ${item.score}，表达较为清晰`;
+    });
+    const improvements = sorted.slice(-2).map((item) => {
+      return `“${item.question}”可补充量化价值与推进动作`;
+    });
+    return {
+      summary: `本次演练完成，平均得分 ${avg} 分。`,
+      strengths: strengths.length ? strengths : ["表达完整度较好"],
+      improvements: improvements.length ? improvements : ["补充具体案例与下一步动作"],
+      nextSteps: ["继续练习高频疑义的结构化回答", "准备 1-2 个同类案例"]
+    };
+  };
+
+  const finishDrill = async (items: DrillItem[]) => {
+    const scored = items.filter((item) => typeof item.score === "number");
+    if (scored.length === 0) {
+      setDrillReport(computeFallbackReport(items));
+      return;
+    }
+    try {
+      const report = await generateDrillReport({
+        industry: form.industry,
+        productId: form.productId,
+        records: scored.map((item) => ({
+          question: item.question,
+          answer: item.answer,
+          score: item.score ?? 0
+        }))
+      });
+      if (
+        !report.summary &&
+        report.strengths.length === 0 &&
+        report.improvements.length === 0
+      ) {
+        setDrillReport(computeFallbackReport(items));
+      } else {
+        setDrillReport(report);
+      }
+    } catch (error) {
+      setDrillReport(computeFallbackReport(items));
+    }
+  };
+
+  const submitDrillAnswer = async () => {
+    if (!drillActive) return;
+    if (!drillAnswer.trim()) {
+      setDrillError("请输入回答后再提交");
+      return;
+    }
+    const question = drillQuestions[drillIndex];
+    setDrillLoading(true);
+    setDrillError("");
+    try {
+      const score = await scoreSalesAnswer({
+        industry: form.industry,
+        productId: form.productId,
+        question,
+        answer: drillAnswer.trim()
+      });
+      const updatedItems = drillItems.map((item, index) =>
+        index === drillIndex
+          ? {
+              question,
+              answer: drillAnswer.trim(),
+              score: score.score,
+              feedback: score.feedback,
+              highlight: score.highlight,
+              improve: score.improve
+            }
+          : item
+      );
+      setDrillItems(updatedItems);
+      setDrillAnswer("");
+      if (drillIndex + 1 < drillQuestions.length) {
+        setDrillIndex((prev) => prev + 1);
+      } else {
+        setDrillActive(false);
+        finishDrill(updatedItems);
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "评分失败，请重试";
+      setDrillError(message);
+    } finally {
+      setDrillLoading(false);
+    }
   };
 
   const buildCopyText = (suggestion: ScriptSuggestion) => {
@@ -858,6 +999,165 @@ export default function App() {
           </section>
         </div>
       </div>
+
+      <section className="mt-10 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900 font-['Rubik']">
+              销售演练系统
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              商户连续提问，你逐题回答并获取评分，完成后生成报告。
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            {drillQuestions.length > 0 && (
+              <span>
+                进度 {Math.min(drillIndex + 1, drillQuestions.length)}/
+                {drillQuestions.length}
+              </span>
+            )}
+            <Button type="button" onClick={startDrill} disabled={drillLoading}>
+              {drillActive ? "重新开始" : "开始演练"}
+            </Button>
+          </div>
+        </div>
+
+        {drillError && (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+            {drillError}
+          </div>
+        )}
+
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase text-slate-500">
+                商户提问
+              </p>
+              <p className="mt-2 text-sm text-slate-800">
+                {drillQuestions[drillIndex] || "请选择意向产品并开始演练"}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="drill-answer">你的回答</Label>
+              <Textarea
+                id="drill-answer"
+                rows={4}
+                placeholder="用 2-3 句回应商户疑义，并给出推进动作..."
+                value={drillAnswer}
+                onChange={(event) => setDrillAnswer(event.target.value)}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  onClick={submitDrillAnswer}
+                  disabled={!drillActive || drillLoading}
+                >
+                  {drillLoading ? "评分中..." : "提交并评分"}
+                </Button>
+                <span className="text-xs text-slate-400">
+                  建议回答包括价值、案例与下一步动作
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase text-slate-500">
+                评分记录
+              </p>
+              {drillItems.filter((item) => item.score !== undefined).length ===
+              0 ? (
+                <p className="mt-2 text-sm text-slate-500">
+                  暂无评分记录。
+                </p>
+              ) : (
+                <div className="mt-3 space-y-3">
+                  {drillItems
+                    .filter((item) => item.score !== undefined)
+                    .map((item) => (
+                      <div
+                        key={item.question}
+                        className="rounded-xl border border-slate-200 bg-white p-3 text-sm"
+                      >
+                        <p className="text-xs text-slate-400">
+                          得分 {item.score}
+                        </p>
+                        <p className="mt-1 text-slate-700">{item.question}</p>
+                        <p className="mt-2 text-slate-600">
+                          亮点：{item.highlight}
+                        </p>
+                        <p className="mt-1 text-slate-600">
+                          建议：{item.improve}
+                        </p>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase text-slate-500">
+                演练报告
+              </p>
+              {drillReport ? (
+                <div className="mt-3 space-y-3 text-sm text-slate-700">
+                  <p>{drillReport.summary}</p>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500">
+                      亮点
+                    </p>
+                    {drillReport.strengths.length === 0 ? (
+                      <p className="mt-1 text-slate-500">暂无</p>
+                    ) : (
+                      <ul className="mt-1 list-disc space-y-1 pl-5">
+                        {drillReport.strengths.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500">
+                      改进建议
+                    </p>
+                    {drillReport.improvements.length === 0 ? (
+                      <p className="mt-1 text-slate-500">暂无</p>
+                    ) : (
+                      <ul className="mt-1 list-disc space-y-1 pl-5">
+                        {drillReport.improvements.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500">
+                      下一步
+                    </p>
+                    {drillReport.nextSteps.length === 0 ? (
+                      <p className="mt-1 text-slate-500">暂无</p>
+                    ) : (
+                      <ul className="mt-1 list-disc space-y-1 pl-5">
+                        {drillReport.nextSteps.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-slate-500">
+                  完成所有问题后生成报告。
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }

@@ -98,3 +98,117 @@ export async function generateNotesSuggestions(options: {
     .filter(Boolean)
     .slice(0, 6);
 }
+
+export type DrillScore = {
+  score: number;
+  feedback: string;
+  highlight: string;
+  improve: string;
+};
+
+export type DrillReport = {
+  summary: string;
+  strengths: string[];
+  improvements: string[];
+  nextSteps: string[];
+};
+
+function buildScorePrompt(options: {
+  industry: string;
+  productId: string;
+  question: string;
+  answer: string;
+}) {
+  return `你是销售教练。请对销售回答进行评分并给出简短反馈。\n\n要求：\n1. 只输出 JSON，不要额外文字\n2. 字段：score(0-100), feedback(一句话), highlight(一句话), improve(一句话)\n3. 评分关注：是否回应疑义、是否量化价值、是否推动下一步\n\n行业：${options.industry}\n意向产品：${options.productId}\n商户问题：${options.question}\n销售回答：${options.answer}\n`;
+}
+
+export async function scoreSalesAnswer(options: {
+  industry: string;
+  productId: string;
+  question: string;
+  answer: string;
+}): Promise<DrillScore> {
+  const content = await createChatCompletion({
+    messages: [{ role: "user", content: buildScorePrompt(options) }]
+  });
+
+  const cleaned = content
+    .trim()
+    .replace(/^```json/i, "")
+    .replace(/^```/i, "")
+    .replace(/```$/, "")
+    .trim();
+
+  try {
+    const parsed = JSON.parse(extractJsonPayload(cleaned));
+    const score = Number(parsed.score);
+    return {
+      score: Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : 60,
+      feedback: parsed.feedback ?? "已评分",
+      highlight: parsed.highlight ?? "表达清晰",
+      improve: parsed.improve ?? "补充具体行动建议"
+    };
+  } catch (error) {
+    return {
+      score: 60,
+      feedback: "系统兜底评分",
+      highlight: "表达清晰",
+      improve: "补充价值与推进动作"
+    };
+  }
+}
+
+function buildReportPrompt(options: {
+  industry: string;
+  productId: string;
+  records: Array<{ question: string; answer: string; score: number }>;
+}) {
+  const content = options.records
+    .map(
+      (item, index) =>
+        `${index + 1}. Q:${item.question}\nA:${item.answer}\nScore:${item.score}`
+    )
+    .join("\n\n");
+
+  return `你是销售教练，请输出本次演练的整体报告。\n\n要求：\n1. 只输出 JSON\n2. 字段：summary, strengths(数组), improvements(数组), nextSteps(数组)\n3. summary 1-2 句\n\n行业：${options.industry}\n意向产品：${options.productId}\n\n记录：\n${content}\n`;
+}
+
+export async function generateDrillReport(options: {
+  industry: string;
+  productId: string;
+  records: Array<{ question: string; answer: string; score: number }>;
+}): Promise<DrillReport> {
+  const content = await createChatCompletion({
+    messages: [{ role: "user", content: buildReportPrompt(options) }]
+  });
+
+  const cleaned = content
+    .trim()
+    .replace(/^```json/i, "")
+    .replace(/^```/i, "")
+    .replace(/```$/, "")
+    .trim();
+
+  try {
+    const parsed = JSON.parse(extractJsonPayload(cleaned));
+    return {
+      summary: parsed.summary ?? "演练完成",
+      strengths: Array.isArray(parsed.strengths)
+        ? parsed.strengths.map(String).filter(Boolean)
+        : [],
+      improvements: Array.isArray(parsed.improvements)
+        ? parsed.improvements.map(String).filter(Boolean)
+        : [],
+      nextSteps: Array.isArray(parsed.nextSteps)
+        ? parsed.nextSteps.map(String).filter(Boolean)
+        : []
+    };
+  } catch (error) {
+    return {
+      summary: "演练完成",
+      strengths: [],
+      improvements: [],
+      nextSteps: []
+    };
+  }
+}
