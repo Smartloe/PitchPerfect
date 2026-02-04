@@ -1,6 +1,9 @@
-import "dotenv/config";
+import dotenv from "dotenv";
 import http from "node:http";
 import { URL } from "node:url";
+
+dotenv.config({ path: ".env.local" });
+dotenv.config();
 
 const PORT = Number(process.env.PORT || 8787);
 const API_URL = "https://api.longcat.chat/openai/v1/chat/completions";
