@@ -21,6 +21,7 @@ import {
   generateNotesSuggestions,
   generateDrillQuestions,
   generateDrillReport,
+  generateFollowUpQuestions,
   scoreSalesAnswer,
   generateScriptAdvice
 } from "./lib/salesAssistantClient";
@@ -113,6 +114,7 @@ type DrillItem = {
   feedback?: string;
   highlight?: string;
   improve?: string;
+  kind?: "main" | "followup";
 };
 
 type DrillReport = {
@@ -382,7 +384,9 @@ export default function App() {
   const startDrill = async () => {
     const questions = await loadDrillQuestions();
     if (questions.length === 0) return;
-    setDrillItems(questions.map((question) => ({ question, answer: "" })));
+    setDrillItems(
+      questions.map((question) => ({ question, answer: "", kind: "main" }))
+    );
     setDrillIndex(0);
     setDrillAnswer("");
     setDrillActive(true);
@@ -444,13 +448,20 @@ export default function App() {
     }
   };
 
+  const shouldFollowUp = (score: number, answer: string) => {
+    const normalized = answer.trim();
+    const tooShort = normalized.length < 30;
+    return score < 70 || tooShort;
+  };
+
   const submitDrillAnswer = async () => {
     if (!drillActive) return;
     if (!drillAnswer.trim()) {
       setDrillError("请输入回答后再提交");
       return;
     }
-    const question = drillQuestions[drillIndex];
+    const currentItem = drillItems[drillIndex];
+    const question = currentItem?.question || "";
     setDrillLoading(true);
     setDrillError("");
     try {
@@ -460,9 +471,10 @@ export default function App() {
         question,
         answer: drillAnswer.trim()
       });
-      const updatedItems = drillItems.map((item, index) =>
+      const baseItems = drillItems.map((item, index) =>
         index === drillIndex
           ? {
+              ...item,
               question,
               answer: drillAnswer.trim(),
               score: score.score,
@@ -472,9 +484,34 @@ export default function App() {
             }
           : item
       );
+      let updatedItems = baseItems;
+      if (shouldFollowUp(score.score, drillAnswer)) {
+        try {
+          const followUps = await generateFollowUpQuestions({
+            industry: form.industry,
+            productId: form.productId,
+            question,
+            answer: drillAnswer.trim()
+          });
+          if (followUps.length > 0) {
+            const followUpItems: DrillItem[] = followUps.map((item) => ({
+              question: item,
+              answer: "",
+              kind: "followup"
+            }));
+            updatedItems = [
+              ...baseItems.slice(0, drillIndex + 1),
+              ...followUpItems,
+              ...baseItems.slice(drillIndex + 1)
+            ];
+          }
+        } catch (error) {
+          setDrillError("追问生成失败，已继续下一题");
+        }
+      }
       setDrillItems(updatedItems);
       setDrillAnswer("");
-      if (drillIndex + 1 < drillQuestions.length) {
+      if (drillIndex + 1 < updatedItems.length) {
         setDrillIndex((prev) => prev + 1);
       } else {
         setDrillActive(false);
@@ -1082,8 +1119,14 @@ export default function App() {
                 商户提问
               </p>
               <p className="mt-2 text-sm text-slate-800">
-                {drillQuestions[drillIndex] || "请选择意向产品并开始演练"}
+                {drillItems[drillIndex]?.question ||
+                  "请选择意向产品并开始演练"}
               </p>
+              {drillItems[drillIndex]?.kind === "followup" && (
+                <span className="mt-2 inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">
+                  补充追问
+                </span>
+              )}
             </div>
 
             <div className="space-y-2">

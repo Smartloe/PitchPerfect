@@ -160,6 +160,48 @@ export async function generateDrillQuestions(options: {
     .slice(0, 7);
 }
 
+function buildFollowUpPrompt(options: {
+  industry: string;
+  productId: string;
+  question: string;
+  answer: string;
+}) {
+  return `你是商户 Agent。基于以下回答内容，请提出 2-3 条补充追问，聚焦细节与量化价值。\n\n要求：\n1. 只输出 JSON 数组\n2. 每条问题 12-22 字\n3. 语气保持真实\n\n行业：${options.industry}\n意向产品：${options.productId}\n原问题：${options.question}\n销售回答：${options.answer}\n`;
+}
+
+export async function generateFollowUpQuestions(options: {
+  industry: string;
+  productId: string;
+  question: string;
+  answer: string;
+}): Promise<string[]> {
+  const content = await createChatCompletion({
+    messages: [{ role: "user", content: buildFollowUpPrompt(options) }]
+  });
+
+  const cleaned = content
+    .trim()
+    .replace(/^```json/i, "")
+    .replace(/^```/i, "")
+    .replace(/```$/, "")
+    .trim();
+
+  try {
+    const payload = JSON.parse(cleaned);
+    if (Array.isArray(payload)) {
+      return payload.map((item) => String(item)).filter(Boolean).slice(0, 3);
+    }
+  } catch (error) {
+    // fall through
+  }
+
+  return cleaned
+    .split(/\n+/)
+    .map((line) => line.replace(/^[-*\\d.\\s]+/, "").trim())
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
 function buildScorePrompt(options: {
   industry: string;
   productId: string;
