@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -246,12 +247,21 @@ const achievementTracks = [
   }
 ];
 
-const cardBase =
-  "relative overflow-hidden rounded-3xl border border-white/70 bg-white/80 shadow-[0_24px_60px_rgba(15,23,42,0.08)] ring-1 ring-white/60 backdrop-blur after:pointer-events-none after:absolute after:inset-0 after:rounded-[24px] after:border after:border-white/50 after:shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]";
-const cardSoft =
-  "relative overflow-hidden rounded-2xl border border-white/60 bg-white/75 shadow-[0_16px_40px_rgba(15,23,42,0.06)] ring-1 ring-white/60 backdrop-blur after:pointer-events-none after:absolute after:inset-0 after:rounded-[20px] after:border after:border-white/50 after:shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]";
-const cardGhost =
-  "relative overflow-hidden rounded-2xl border border-white/70 bg-white/70 shadow-[0_12px_24px_rgba(15,23,42,0.05)] ring-1 ring-white/60 backdrop-blur after:pointer-events-none after:absolute after:inset-0 after:rounded-[18px] after:border after:border-white/50 after:shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]";
+const cardBaseStyles =
+  "relative overflow-hidden border bg-white/80 ring-1 ring-white/60 backdrop-blur after:pointer-events-none after:absolute after:inset-0 after:border after:border-white/50 after:shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]";
+
+const cardBase = cn(
+  cardBaseStyles,
+  "rounded-3xl border-white/70 shadow-[0_24px_60px_rgba(15,23,42,0.08)] after:rounded-[24px]"
+);
+const cardSoft = cn(
+  cardBaseStyles,
+  "rounded-2xl border-white/60 bg-white/75 shadow-[0_16px_40px_rgba(15,23,42,0.06)] after:rounded-[20px]"
+);
+const cardGhost = cn(
+  cardBaseStyles,
+  "rounded-2xl border-white/70 bg-white/70 shadow-[0_12px_24px_rgba(15,23,42,0.05)] after:rounded-[18px]"
+);
 const hoverLift = "transition-transform duration-200 hover:-translate-y-0.5";
 const pillBase =
   "inline-flex items-center rounded-full border border-white/60 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 shadow-[0_8px_20px_rgba(15,23,42,0.08)] backdrop-blur transition hover:border-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200";
@@ -300,6 +310,17 @@ const requiredFieldLabels: Record<keyof FormState, string> = {
   notes: "补充说明",
   productId: "意向产品"
 };
+
+function useTimeout(callback: () => void, delay: number, deps: React.DependencyList) {
+  const callbackRef = useRef(callback);
+  callbackRef.current = callback;
+
+  useEffect(() => {
+    const timer = setTimeout(() => callbackRef.current(), delay);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+}
 
 type IconName =
   | "dashboard"
@@ -437,13 +458,19 @@ const SkeletonCard = ({ lines = 3 }: { lines?: number }) => (
   </div>
 );
 
+function getToneColor(tone: "blue" | "emerald" | "slate"): string {
+  switch (tone) {
+    case "emerald":
+      return "stroke-emerald-500";
+    case "slate":
+      return "stroke-slate-400";
+    default:
+      return "stroke-blue-500";
+  }
+}
+
 const EmptyIllustration = ({ tone }: { tone: "blue" | "emerald" | "slate" }) => {
-  const color =
-    tone === "emerald"
-      ? "stroke-emerald-500"
-      : tone === "slate"
-        ? "stroke-slate-400"
-        : "stroke-blue-500";
+  const color = getToneColor(tone);
   return (
     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/80 shadow-sm">
       <svg
@@ -704,27 +731,14 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => {
-    if (!toolboxNotice) return;
-    const timer = setTimeout(() => setToolboxNotice(""), 1800);
-    return () => clearTimeout(timer);
-  }, [toolboxNotice]);
-
-  useEffect(() => {
-    if (!memoryNotice) return;
-    const timer = setTimeout(() => setMemoryNotice(""), 1800);
-    return () => clearTimeout(timer);
-  }, [memoryNotice]);
+  useTimeout(() => setToolboxNotice(""), 1800, [toolboxNotice]);
+  useTimeout(() => setMemoryNotice(""), 1800, [memoryNotice]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [activePage]);
 
-  useEffect(() => {
-    if (!successMessage) return;
-    const timer = setTimeout(() => setSuccessMessage(""), 2000);
-    return () => clearTimeout(timer);
-  }, [successMessage]);
+  useTimeout(() => setSuccessMessage(""), 2000, [successMessage]);
 
   useEffect(() => {
     if (filteredCases.length === 0) return;
