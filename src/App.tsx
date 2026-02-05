@@ -264,7 +264,7 @@ const cardGhost = cn(
 );
 const hoverLift = "transition-transform duration-200 hover:-translate-y-0.5";
 const pillBase =
-  "inline-flex items-center rounded-full border border-white/60 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 shadow-[0_8px_20px_rgba(15,23,42,0.08)] backdrop-blur transition hover:border-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200";
+  "inline-flex items-center rounded-full border border-white/60 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 shadow-[0_8px_20px_rgba(15,23,42,0.08)] backdrop-blur transition hover:border-blue-200 active:border-blue-600 active:bg-blue-600 active:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200";
 const pillSubtle =
   "inline-flex items-center rounded-full border border-white/50 bg-white/70 px-2.5 py-0.5 text-xs font-medium text-slate-500 shadow-[0_6px_16px_rgba(15,23,42,0.06)] backdrop-blur transition hover:border-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200";
 
@@ -531,6 +531,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
   const [memoryNotice, setMemoryNotice] = useState("");
+  const [authDrawerOpen, setAuthDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>({
     industry: "",
     scale: "",
@@ -1149,6 +1150,7 @@ export default function App() {
       setAuthToken(response.token);
       storeAuth(response.token, response.username);
       setAuthForm({ username: "", password: "" });
+      setAuthDrawerOpen(false);
       setMemoryNotice("已登录，可保存记忆");
     } catch (error) {
       const message = error instanceof Error ? error.message : "登录失败";
@@ -3036,7 +3038,7 @@ export default function App() {
       <div className="pointer-events-none absolute left-8 top-24 h-60 w-60 rounded-full bg-emerald-200/40 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-32 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-indigo-200/30 blur-3xl" />
 
-      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-white/60 bg-white/70 px-6 py-8 shadow-[0_20px_60px_rgba(15,23,42,0.12)] ring-1 ring-white/60 backdrop-blur-xl md:flex">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-white/60 bg-white/70 px-6 py-8 shadow-[0_20px_60px_rgba(15,23,42,0.12)] ring-1 ring-white/60 backdrop-blur-xl md:flex">
         <div>
           <span
             className={cn(
@@ -3120,13 +3122,13 @@ export default function App() {
                   已登录：{authUser}
                 </span>
               ) : (
-                <button
+                <Button
                   type="button"
-                  className="text-xs font-semibold text-blue-600 transition hover:text-blue-500"
-                  onClick={() => setActivePage("profile")}
+                  variant="outline"
+                  onClick={() => setAuthDrawerOpen(true)}
                 >
                   登录/注册
-                </button>
+                </Button>
               )}
               <div className={cn(pillSubtle, "hidden gap-2 sm:flex")}>
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
@@ -3136,7 +3138,7 @@ export default function App() {
           </div>
         </header>
 
-        <main className="mx-auto max-w-6xl px-6 py-8 pb-28 md:pb-12">
+        <main className="mx-auto max-w-6xl px-6 pb-28 pt-24 md:pb-12">
           {pageContent}
         </main>
       </div>
@@ -3168,6 +3170,125 @@ export default function App() {
           );
         })}
       </nav>
+
+      {/* Auth Drawer */}
+      {authDrawerOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm"
+          onClick={() => setAuthDrawerOpen(false)}
+        >
+          <div
+            className="absolute right-0 top-0 h-full w-full max-w-md border-l border-white/60 bg-white/90 p-6 shadow-2xl backdrop-blur-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">
+                {authMode === "login" ? "登录" : "注册"}
+              </h2>
+              <button
+                type="button"
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                onClick={() => setAuthDrawerOpen(false)}
+              >
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mt-8 space-y-6">
+              <div className="flex flex-wrap gap-2">
+                {["login", "register"].map((mode) => {
+                  const active = authMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      className={cn(
+                        pillBase,
+                        active
+                          ? "border-blue-600 bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]"
+                          : "text-slate-600 hover:border-blue-200"
+                      )}
+                      onClick={() =>
+                        setAuthMode(mode as "login" | "register")
+                      }
+                    >
+                      {mode === "login" ? "登录" : "注册"}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="drawer-username">账号</Label>
+                  <Input
+                    id="drawer-username"
+                    placeholder="3-16 位字母/数字/下划线"
+                    value={authForm.username}
+                    onChange={(event) =>
+                      setAuthForm((prev) => ({
+                        ...prev,
+                        username: event.target.value
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="drawer-password">密码</Label>
+                  <Input
+                    id="drawer-password"
+                    type="password"
+                    placeholder="至少 6 位"
+                    value={authForm.password}
+                    onChange={(event) =>
+                      setAuthForm((prev) => ({
+                        ...prev,
+                        password: event.target.value
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+
+              {authError && (
+                <p className="text-sm text-red-600">{authError}</p>
+              )}
+
+              <Button
+                type="button"
+                className="w-full bg-blue-600 hover:bg-blue-500"
+                onClick={handleAuthSubmit}
+                disabled={authLoading}
+              >
+                {authLoading
+                  ? "处理中..."
+                  : authMode === "login"
+                    ? "登录"
+                    : "注册"}
+              </Button>
+
+              <div className={cn(cardSoft, "p-4 text-sm text-slate-600")}>
+                <p className="font-semibold text-slate-700">记忆功能说明</p>
+                <p className="mt-2 text-xs text-slate-500">
+                  登录后会自动记录对话记忆，保存为持久记忆文件供后续使用。
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
