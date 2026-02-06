@@ -1,20 +1,129 @@
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Rubik:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  font-family: "Plus Jakarta Sans", "PingFang SC", "Microsoft YaHei", system-ui,
+  --bg-base: #f3f6fd;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --panel: rgba(255, 255, 255, 0.74);
+  --panel-strong: rgba(255, 255, 255, 0.9);
+  --line-soft: rgba(148, 163, 184, 0.24);
+  --accent: #1d4ed8;
+  --accent-soft: rgba(29, 78, 216, 0.18);
+  font-family: "Noto Sans SC", "Outfit", "PingFang SC", "Microsoft YaHei",
     sans-serif;
-  color: #0f172a;
-  background-color: #f8fafc;
+  color: var(--text-primary);
+  background-color: var(--bg-base);
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  background: radial-gradient(600px 320px at 15% 10%, rgba(37, 99, 235, 0.12), transparent 55%),
-    radial-gradient(540px 260px at 85% 5%, rgba(16, 185, 129, 0.12), transparent 55%),
-    #f8fafc;
-  color: #0f172a;
+  min-height: 100vh;
+  background-color: var(--bg-base);
+  background-image:
+    radial-gradient(760px 420px at -10% -8%, rgba(37, 99, 235, 0.24), transparent 65%),
+    radial-gradient(620px 340px at 108% -12%, rgba(5, 150, 105, 0.2), transparent 70%),
+    radial-gradient(680px 360px at 48% 108%, rgba(245, 158, 11, 0.16), transparent 72%),
+    linear-gradient(140deg, #eef2ff 0%, #f8fbff 38%, #eaf2ff 100%);
+  color: var(--text-primary);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(148, 163, 184, 0.06) 0 1px,
+      transparent 1px 34px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(148, 163, 184, 0.045) 0 1px,
+      transparent 1px 34px
+    );
+  mask-image: radial-gradient(circle at center, black 38%, transparent 100%);
+  opacity: 0.42;
+  z-index: -2;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: -24% -18%;
+  pointer-events: none;
+  background: conic-gradient(
+    from 160deg at 50% 50%,
+    rgba(37, 99, 235, 0.16),
+    rgba(5, 150, 105, 0.13),
+    rgba(245, 158, 11, 0.09),
+    rgba(37, 99, 235, 0.16)
+  );
+  filter: blur(68px);
+  opacity: 0.36;
+  z-index: -3;
+}
+
+#root {
+  min-height: 100vh;
+  position: relative;
+  isolation: isolate;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Outfit", "Noto Sans SC", "PingFang SC", sans-serif;
+  letter-spacing: 0.01em;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: #0b1b43;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(226, 232, 240, 0.56);
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid rgba(248, 250, 252, 0.8);
+  background: linear-gradient(
+    180deg,
+    rgba(37, 99, 235, 0.6),
+    rgba(14, 116, 144, 0.56)
+  );
+}
+
+@keyframes app-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.app-shell {
+  animation: app-rise 0.46s ease-out both;
 }

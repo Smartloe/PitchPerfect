@@ -248,25 +248,26 @@ const achievementTracks = [
 ];
 
 const cardBaseStyles =
-  "relative overflow-hidden border bg-white/80 ring-1 ring-white/60 backdrop-blur after:pointer-events-none after:absolute after:inset-0 after:border after:border-white/50 after:shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]";
+  "relative overflow-hidden border border-white/70 bg-[linear-gradient(160deg,rgba(255,255,255,0.9),rgba(244,248,255,0.72))] ring-1 ring-white/[0.65] backdrop-blur-xl before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-20 before:bg-gradient-to-b before:from-white/60 before:to-transparent after:pointer-events-none after:absolute after:inset-0 after:border after:border-white/[0.55] after:shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]";
 
 const cardBase = cn(
   cardBaseStyles,
-  "rounded-3xl border-white/70 shadow-[0_24px_60px_rgba(15,23,42,0.08)] after:rounded-[24px]"
+  "rounded-3xl shadow-[0_26px_64px_rgba(15,23,42,0.12)] after:rounded-[24px]"
 );
 const cardSoft = cn(
   cardBaseStyles,
-  "rounded-2xl border-white/60 bg-white/75 shadow-[0_16px_40px_rgba(15,23,42,0.06)] after:rounded-[20px]"
+  "rounded-2xl bg-[linear-gradient(165deg,rgba(255,255,255,0.88),rgba(247,250,255,0.72))] shadow-[0_18px_44px_rgba(15,23,42,0.1)] after:rounded-[20px]"
 );
 const cardGhost = cn(
   cardBaseStyles,
-  "rounded-2xl border-white/70 bg-white/70 shadow-[0_12px_24px_rgba(15,23,42,0.05)] after:rounded-[18px]"
+  "rounded-2xl bg-[linear-gradient(165deg,rgba(255,255,255,0.78),rgba(242,246,255,0.65))] shadow-[0_14px_30px_rgba(15,23,42,0.08)] after:rounded-[18px]"
 );
-const hoverLift = "transition-transform duration-200 hover:-translate-y-0.5";
+const hoverLift =
+  "transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_30px_68px_rgba(15,23,42,0.16)]";
 const pillBase =
-  "inline-flex items-center rounded-full border border-white/60 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 shadow-[0_8px_20px_rgba(15,23,42,0.08)] backdrop-blur transition hover:border-blue-200 active:border-blue-600 active:bg-blue-600 active:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200";
+  "inline-flex items-center rounded-full border border-white/70 bg-white/80 px-3 py-1 text-xs font-semibold tracking-[0.01em] text-slate-600 shadow-[0_10px_22px_rgba(15,23,42,0.08)] backdrop-blur-md transition duration-200 hover:-translate-y-0.5 hover:border-blue-200 active:border-blue-600 active:bg-blue-600 active:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200";
 const pillSubtle =
-  "inline-flex items-center rounded-full border border-white/50 bg-white/70 px-2.5 py-0.5 text-xs font-medium text-slate-500 shadow-[0_6px_16px_rgba(15,23,42,0.06)] backdrop-blur transition hover:border-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200";
+  "inline-flex items-center rounded-full border border-white/60 bg-white/[0.72] px-2.5 py-0.5 text-xs font-medium text-slate-500 shadow-[0_8px_18px_rgba(15,23,42,0.07)] backdrop-blur transition duration-200 hover:border-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200";
 
 type FormState = MerchantProfile & {
   productId: ProductId;
@@ -1710,7 +1711,7 @@ export default function App() {
                     <div className="mt-1 h-8 w-8 rounded-full bg-slate-900 text-center text-xs font-semibold leading-8 text-white shadow-sm">
                       商
                     </div>
-                    <div className="max-w-[80%] rounded-2xl border border-white/70 bg-white/85 px-4 py-3 text-sm text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur">
+                    <div className="max-w-[80%] rounded-2xl border border-white/70 bg-white/[0.85] px-4 py-3 text-sm text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur">
                       <p>{item.question}</p>
                       {item.kind === "followup" && (
                         <span className="mt-2 inline-flex rounded-full bg-orange-100/80 px-2 py-0.5 text-xs text-orange-700">
@@ -3033,29 +3034,29 @@ export default function App() {
   }[activePage];
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-transparent text-slate-900">
-      <div className="pointer-events-none absolute -top-24 right-0 h-72 w-72 rounded-full bg-blue-200/40 blur-3xl" />
-      <div className="pointer-events-none absolute left-8 top-24 h-60 w-60 rounded-full bg-emerald-200/40 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-32 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-indigo-200/30 blur-3xl" />
+    <div className="app-shell relative min-h-screen overflow-hidden bg-transparent text-slate-900">
+      <div className="pointer-events-none absolute -right-16 -top-36 h-96 w-96 rounded-full bg-blue-300/35 blur-3xl" />
+      <div className="pointer-events-none absolute left-10 top-28 h-72 w-72 rounded-full bg-emerald-200/35 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-44 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-amber-200/30 blur-3xl" />
 
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-white/60 bg-white/70 px-6 py-8 shadow-[0_20px_60px_rgba(15,23,42,0.12)] ring-1 ring-white/60 backdrop-blur-xl md:flex">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-white/[0.65] bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(239,246,255,0.72))] px-7 py-8 shadow-[0_34px_78px_rgba(15,23,42,0.16)] ring-1 ring-white/70 backdrop-blur-2xl md:flex">
         <div>
           <span
             className={cn(
               pillBase,
-              "border-blue-100/80 bg-blue-100/90 text-blue-700 shadow-none"
+              "border-blue-100/90 bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 shadow-[0_8px_20px_rgba(37,99,235,0.16)]"
             )}
           >
             PitchPerfect
           </span>
-          <h1 className="mt-3 text-lg font-semibold text-slate-900">
+          <h1 className="mt-4 text-xl font-semibold tracking-[0.02em] text-slate-900">
             新人销售话术助手
           </h1>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-2 text-xs leading-relaxed text-slate-500">
             AI 驱动的销售训练平台
           </p>
         </div>
-        <nav className="mt-8 space-y-2">
+        <nav className="mt-9 space-y-2.5">
           {navItems.map((item) => {
             const active = activePage === item.id;
             return (
@@ -3063,23 +3064,33 @@ export default function App() {
                 key={item.id}
                 type="button"
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-2 text-left text-sm font-medium transition",
+                  "group flex w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5 text-left text-sm font-semibold transition-all duration-200",
                   active
-                    ? "border-white/80 bg-white/80 text-blue-700 shadow-[0_12px_24px_rgba(15,23,42,0.08)]"
-                    : "text-slate-600 hover:border-white/60 hover:bg-white/70"
+                    ? "border-white/[0.85] bg-white/[0.85] text-blue-700 shadow-[0_14px_30px_rgba(15,23,42,0.11)]"
+                    : "text-slate-600 hover:-translate-y-0.5 hover:border-white/[0.65] hover:bg-white/70"
                 )}
                 onClick={() => setActivePage(item.id)}
               >
-                <Icon
-                  name={item.icon}
+                <span
                   className={cn(
-                    "h-5 w-5",
-                    active ? "text-blue-600" : "text-slate-400"
+                    "inline-flex h-8 w-8 items-center justify-center rounded-xl border transition",
+                    active
+                      ? "border-blue-100 bg-blue-50/90 text-blue-600 shadow-[0_10px_18px_rgba(37,99,235,0.2)]"
+                      : "border-white/70 bg-white/70 text-slate-400 group-hover:border-blue-100 group-hover:text-blue-500"
                   )}
-                />
+                >
+                  <Icon name={item.icon} className="h-4 w-4" />
+                </span>
                 <div>
                   <p>{item.label}</p>
-                  <p className="text-xs text-slate-400">{item.description}</p>
+                  <p
+                    className={cn(
+                      "text-xs",
+                      active ? "text-blue-500/90" : "text-slate-400"
+                    )}
+                  >
+                    {item.description}
+                  </p>
                 </div>
               </button>
             );
@@ -3092,7 +3103,8 @@ export default function App() {
           </p>
           <Button
             type="button"
-            className="mt-3 w-full bg-blue-600 hover:bg-blue-500"
+            className="mt-3 w-full"
+            size="lg"
             onClick={() => goToTraining("assistant")}
           >
             开始训练
@@ -3100,11 +3112,11 @@ export default function App() {
         </div>
       </aside>
 
-      <div className="relative z-10 md:pl-64">
-        <header className="sticky top-0 z-20 border-b border-white/60 bg-white/75 shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
+      <div className="relative z-10 md:pl-72">
+        <header className="sticky top-0 z-20 border-b border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(248,251,255,0.78))] shadow-[0_14px_34px_rgba(15,23,42,0.1)] backdrop-blur-2xl">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-6 py-4">
             <div>
-              <p className="text-xs font-semibold uppercase text-slate-500">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
                 {pageMeta[activePage].title}
               </p>
               <p className="mt-1 text-sm text-slate-600">
@@ -3138,12 +3150,12 @@ export default function App() {
           </div>
         </header>
 
-        <main className="mx-auto max-w-6xl px-6 pb-28 pt-24 md:pb-12">
+        <main className="mx-auto max-w-7xl px-6 pb-28 pt-20 md:pb-12">
           {pageContent}
         </main>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around border-t border-white/60 bg-white/80 px-4 py-2 shadow-[0_-12px_30px_rgba(15,23,42,0.12)] backdrop-blur md:hidden">
+      <nav className="fixed bottom-3 left-3 right-3 z-30 grid grid-cols-5 items-center rounded-2xl border border-white/70 bg-white/[0.82] px-2 py-2 shadow-[0_16px_36px_rgba(15,23,42,0.16)] backdrop-blur-xl md:hidden">
         {navItems.map((item) => {
           const active = activePage === item.id;
           return (
@@ -3151,9 +3163,9 @@ export default function App() {
               key={item.id}
               type="button"
               className={cn(
-                "flex flex-col items-center gap-1 rounded-xl border border-transparent px-3 py-2 text-xs transition",
+                "flex flex-col items-center gap-1 rounded-xl border border-transparent px-1 py-2 text-[11px] font-medium transition-all duration-200",
                 active
-                  ? "border-white/80 bg-white/80 text-blue-600 shadow-[0_8px_20px_rgba(15,23,42,0.12)]"
+                  ? "border-white/90 bg-white/[0.85] text-blue-600 shadow-[0_10px_22px_rgba(15,23,42,0.12)]"
                   : "text-slate-500 hover:border-white/70 hover:bg-white/70"
               )}
               onClick={() => setActivePage(item.id)}
@@ -3161,7 +3173,7 @@ export default function App() {
               <Icon
                 name={item.icon}
                 className={cn(
-                  "h-5 w-5",
+                  "h-4 w-4",
                   active ? "text-blue-600" : "text-slate-400"
                 )}
               />
@@ -3174,20 +3186,20 @@ export default function App() {
       {/* Auth Drawer */}
       {authDrawerOpen && (
         <div
-          className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm"
+          className="fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-sm"
           onClick={() => setAuthDrawerOpen(false)}
         >
           <div
-            className="absolute right-0 top-0 h-full w-full max-w-md border-l border-white/60 bg-white/90 p-6 shadow-2xl backdrop-blur-xl"
+            className="absolute right-0 top-0 h-full w-full max-w-md border-l border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(241,247,255,0.82))] p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)] backdrop-blur-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 className="text-xl font-semibold text-slate-900">
                 {authMode === "login" ? "登录" : "注册"}
               </h2>
               <button
                 type="button"
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-white hover:text-slate-700"
                 onClick={() => setAuthDrawerOpen(false)}
               >
                 <svg
@@ -3217,7 +3229,7 @@ export default function App() {
                       className={cn(
                         pillBase,
                         active
-                          ? "border-blue-600 bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]"
+                          ? "border-blue-600 bg-gradient-to-b from-blue-500 to-blue-600 text-white shadow-[0_12px_26px_rgba(37,99,235,0.3)]"
                           : "text-slate-600 hover:border-blue-200"
                       )}
                       onClick={() =>
@@ -3268,7 +3280,8 @@ export default function App() {
 
               <Button
                 type="button"
-                className="w-full bg-blue-600 hover:bg-blue-500"
+                className="w-full"
+                size="lg"
                 onClick={handleAuthSubmit}
                 disabled={authLoading}
               >
