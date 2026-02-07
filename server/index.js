@@ -2,8 +2,7 @@ import dotenv from "dotenv";
 import http from "node:http";
 import { URL } from "node:url";
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
+import { Pool } from "pg";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config();
@@ -17,11 +16,21 @@ const RATE_MAX = Number(process.env.RATE_LIMIT_MAX || 30);
 const rateStore = new Map();
 const tokenStore = new Map();
 
-const DATA_DIR = path.resolve("server", "data");
-const MEMORY_DIR = path.resolve("server", "memory");
-const USERS_FILE = path.join(DATA_DIR, "users.json");
 const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,16}$/;
 const TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+const DB_HOST = process.env.PGHOST || "127.0.0.1";
+const DB_PORT = Number(process.env.PGPORT || 5432);
+const DB_USER = process.env.PGUSER || "postgres";
+const DB_PASSWORD = process.env.PGPASSWORD || "12345678";
+const DB_NAME = process.env.PGDATABASE || "postgres";
+
+const pool = new Pool({
+  host: DB_HOST,
+  port: DB_PORT,
+  user: DB_USER,
+  password: DB_PASSWORD,
+  database: DB_NAME
+});
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:5173")
   .split(",")
@@ -83,23 +92,76 @@ async function readJson(req) {
   });
 }
 
-async function ensureDir(dir) {
-  await fs.mkdir(dir, { recursive: true });
-}
+async function initDatabase() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id BIGSERIAL PRIMARY KEY,
+      username VARCHAR(32) UNIQUE NOT NULL,
+      salt VARCHAR(64) NOT NULL,
+      password_hash VARCHAR(128) NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
 
-async function loadUsers() {
-  await ensureDir(DATA_DIR);
-  try {
-    const raw = await fs.readFile(USERS_FILE, "utf8");
-    return JSON.parse(raw);
-  } catch (error) {
-    return { users: [] };
-  }
-}
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS memory_entries (
+      id BIGSERIAL PRIMARY KEY,
+      username VARCHAR(32) NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      ledger TEXT NOT NULL,
+      summary_source TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
 
-async function saveUsers(payload) {
-  await ensureDir(DATA_DIR);
-  await fs.writeFile(USERS_FILE, JSON.stringify(payload, null, 2), "utf8");
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS script_generations (
+      id BIGSERIAL PRIMARY KEY,
+      username VARCHAR(32) NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+      question TEXT NOT NULL,
+      snapshot JSONB NOT NULL,
+      suggestion JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS saved_scripts (
+      id BIGSERIAL PRIMARY KEY,
+      username VARCHAR(32) NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+      question TEXT NOT NULL,
+      snapshot JSONB NOT NULL,
+      suggestion JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS drill_scores (
+      id BIGSERIAL PRIMARY KEY,
+      username VARCHAR(32) NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+      question TEXT NOT NULL,
+      answer TEXT NOT NULL,
+      score INTEGER NOT NULL CHECK (score >= 0 AND score <= 100),
+      feedback TEXT NOT NULL DEFAULT '',
+      highlight TEXT NOT NULL DEFAULT '',
+      improve TEXT NOT NULL DEFAULT '',
+      industry TEXT NOT NULL DEFAULT '',
+      product_id TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(
+    "CREATE INDEX IF NOT EXISTS idx_script_generations_user_created_at ON script_generations(username, created_at DESC)"
+  );
+  await pool.query(
+    "CREATE INDEX IF NOT EXISTS idx_saved_scripts_user_created_at ON saved_scripts(username, created_at DESC)"
+  );
+  await pool.query(
+    "CREATE INDEX IF NOT EXISTS idx_drill_scores_user_created_at ON drill_scores(username, created_at DESC)"
+  );
 }
 
 function hashPassword(password, salt) {
@@ -129,28 +191,147 @@ function getUserFromToken(req) {
 }
 
 async function appendMemory(username, title, ledger, summarySource) {
-  const safeUsername = username.replace(/[^a-zA-Z0-9_]/g, "");
-  if (!safeUsername) {
-    throw new Error("Invalid username");
-  }
-  const userDir = path.join(MEMORY_DIR, safeUsername);
-  await ensureDir(userDir);
-  const ledgerPath = path.join(userDir, "ledger.md");
-  const summaryPath = path.join(userDir, "persistent-memory.md");
-  const timestamp = new Date().toISOString();
-
-  const ledgerBlock = `\n## ${timestamp} ${title}\n${ledger}\n`;
-  await fs.appendFile(ledgerPath, ledgerBlock, "utf8");
-
   const summary = await summarizeMemory(summarySource);
-  const summaryLines = summary
-    .split(/\n+/)
-    .map((line) => line.replace(/^[-*]\s*/, "").trim())
-    .filter(Boolean);
-  const summaryBlock = summaryLines.length
-    ? summaryLines.map((line) => `- ${timestamp} ${line}`).join("\n") + "\n"
-    : `- ${timestamp} ${summary || "新增对话记忆"}\n`;
-  await fs.appendFile(summaryPath, summaryBlock, "utf8");
+  await pool.query(
+    `INSERT INTO memory_entries (username, title, ledger, summary_source, summary)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [username, title, ledger, summarySource, summary]
+  );
+}
+
+function normalizeGrowthRecord(row) {
+  return {
+    id: String(row.id),
+    createdAt: new Date(row.created_at).toISOString(),
+    snapshot: row.snapshot,
+    question: row.question,
+    suggestion: row.suggestion
+  };
+}
+
+async function saveScriptGeneration(username, payload) {
+  const question = String(payload?.question || "").trim();
+  const snapshot = payload?.snapshot;
+  const suggestion = payload?.suggestion;
+  if (!question) {
+    throw new Error("question不能为空");
+  }
+  if (!snapshot || typeof snapshot !== "object") {
+    throw new Error("snapshot无效");
+  }
+  if (!suggestion || typeof suggestion !== "object") {
+    throw new Error("suggestion无效");
+  }
+  await pool.query(
+    `INSERT INTO script_generations (username, question, snapshot, suggestion)
+     VALUES ($1, $2, $3::jsonb, $4::jsonb)`,
+    [username, question, JSON.stringify(snapshot), JSON.stringify(suggestion)]
+  );
+}
+
+async function saveSavedScript(username, payload) {
+  const question = String(payload?.question || "").trim();
+  const snapshot = payload?.snapshot;
+  const suggestion = payload?.suggestion;
+  if (!question) {
+    throw new Error("question不能为空");
+  }
+  if (!snapshot || typeof snapshot !== "object") {
+    throw new Error("snapshot无效");
+  }
+  if (!suggestion || typeof suggestion !== "object") {
+    throw new Error("suggestion无效");
+  }
+  await pool.query(
+    `INSERT INTO saved_scripts (username, question, snapshot, suggestion)
+     VALUES ($1, $2, $3::jsonb, $4::jsonb)`,
+    [username, question, JSON.stringify(snapshot), JSON.stringify(suggestion)]
+  );
+}
+
+async function saveDrillScore(username, payload) {
+  const question = String(payload?.question || "").trim();
+  const answer = String(payload?.answer || "").trim();
+  const score = Number(payload?.score);
+  const feedback = String(payload?.feedback || "").trim();
+  const highlight = String(payload?.highlight || "").trim();
+  const improve = String(payload?.improve || "").trim();
+  const industry = String(payload?.industry || "").trim();
+  const productId = String(payload?.productId || "").trim();
+
+  if (!question) {
+    throw new Error("question不能为空");
+  }
+  if (!answer) {
+    throw new Error("answer不能为空");
+  }
+  if (!Number.isFinite(score) || score < 0 || score > 100) {
+    throw new Error("score必须是0-100");
+  }
+
+  await pool.query(
+    `INSERT INTO drill_scores (
+      username, question, answer, score, feedback, highlight, improve, industry, product_id
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [
+      username,
+      question,
+      answer,
+      Math.round(score),
+      feedback,
+      highlight,
+      improve,
+      industry,
+      productId
+    ]
+  );
+}
+
+async function loadGrowthSnapshot(username) {
+  const [historyResult, savedResult, statsResult] = await Promise.all([
+    pool.query(
+      `SELECT id, question, snapshot, suggestion, created_at
+       FROM script_generations
+       WHERE username = $1
+       ORDER BY created_at DESC
+       LIMIT 5`,
+      [username]
+    ),
+    pool.query(
+      `SELECT id, question, snapshot, suggestion, created_at
+       FROM saved_scripts
+       WHERE username = $1
+       ORDER BY created_at DESC
+       LIMIT 8`,
+      [username]
+    ),
+    pool.query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM script_generations WHERE username = $1) AS total_generations,
+         (SELECT COUNT(*)::int FROM saved_scripts WHERE username = $1) AS total_saved_scripts,
+         (SELECT COUNT(*)::int FROM drill_scores WHERE username = $1) AS drill_score_count,
+         (SELECT COALESCE(ROUND(AVG(score)), 0)::int FROM drill_scores WHERE username = $1) AS drill_average_score`,
+      [username]
+    )
+  ]);
+
+  const statsRow = statsResult.rows[0] || {
+    total_generations: 0,
+    total_saved_scripts: 0,
+    drill_score_count: 0,
+    drill_average_score: 0
+  };
+
+  return {
+    history: historyResult.rows.map(normalizeGrowthRecord),
+    savedScripts: savedResult.rows.map(normalizeGrowthRecord),
+    stats: {
+      totalGenerations: Number(statsRow.total_generations || 0),
+      totalSavedScripts: Number(statsRow.total_saved_scripts || 0),
+      drillScoreCount: Number(statsRow.drill_score_count || 0),
+      drillAverageScore: Number(statsRow.drill_average_score || 0)
+    }
+  };
 }
 
 function fallbackSummary(text) {
@@ -303,15 +484,21 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 400, { error: "密码至少6位" });
         return;
       }
-      const data = await loadUsers();
-      if (data.users.some((user) => user.username === username)) {
+      const existingResult = await pool.query(
+        "SELECT 1 FROM users WHERE username = $1 LIMIT 1",
+        [username]
+      );
+      if (existingResult.rowCount > 0) {
         sendJson(res, 409, { error: "用户名已存在" });
         return;
       }
       const salt = crypto.randomBytes(8).toString("hex");
       const passwordHash = hashPassword(password, salt);
-      data.users.push({ username, salt, passwordHash, createdAt: Date.now() });
-      await saveUsers(data);
+      await pool.query(
+        `INSERT INTO users (username, salt, password_hash)
+         VALUES ($1, $2, $3)`,
+        [username, salt, passwordHash]
+      );
       const token = createToken(username);
       sendJson(res, 200, { token, username });
       return;
@@ -325,14 +512,17 @@ const server = http.createServer(async (req, res) => {
       const body = await readJson(req);
       const username = String(body?.username || "").trim();
       const password = String(body?.password || "");
-      const data = await loadUsers();
-      const user = data.users.find((item) => item.username === username);
-      if (!user) {
+      const userResult = await pool.query(
+        "SELECT username, salt, password_hash FROM users WHERE username = $1 LIMIT 1",
+        [username]
+      );
+      if (userResult.rowCount === 0) {
         sendJson(res, 401, { error: "账号或密码错误" });
         return;
       }
+      const user = userResult.rows[0];
       const passwordHash = hashPassword(password, user.salt);
-      if (passwordHash !== user.passwordHash) {
+      if (passwordHash !== user.password_hash) {
         sendJson(res, 401, { error: "账号或密码错误" });
         return;
       }
@@ -364,12 +554,105 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === "/api/growth/snapshot") {
+      if (req.method !== "POST") {
+        sendJson(res, 405, { error: "Method Not Allowed" });
+        return;
+      }
+      const username = getUserFromToken(req);
+      if (!username) {
+        sendJson(res, 401, { error: "未授权" });
+        return;
+      }
+      const snapshot = await loadGrowthSnapshot(username);
+      sendJson(res, 200, snapshot);
+      return;
+    }
+
+    if (pathname === "/api/growth/script-generation") {
+      if (req.method !== "POST") {
+        sendJson(res, 405, { error: "Method Not Allowed" });
+        return;
+      }
+      const username = getUserFromToken(req);
+      if (!username) {
+        sendJson(res, 401, { error: "未授权" });
+        return;
+      }
+      const body = await readJson(req);
+      try {
+        await saveScriptGeneration(username, body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "参数错误";
+        sendJson(res, 400, { error: message });
+        return;
+      }
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (pathname === "/api/growth/saved-script") {
+      if (req.method !== "POST") {
+        sendJson(res, 405, { error: "Method Not Allowed" });
+        return;
+      }
+      const username = getUserFromToken(req);
+      if (!username) {
+        sendJson(res, 401, { error: "未授权" });
+        return;
+      }
+      const body = await readJson(req);
+      try {
+        await saveSavedScript(username, body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "参数错误";
+        sendJson(res, 400, { error: message });
+        return;
+      }
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (pathname === "/api/growth/drill-score") {
+      if (req.method !== "POST") {
+        sendJson(res, 405, { error: "Method Not Allowed" });
+        return;
+      }
+      const username = getUserFromToken(req);
+      if (!username) {
+        sendJson(res, 401, { error: "未授权" });
+        return;
+      }
+      const body = await readJson(req);
+      try {
+        await saveDrillScore(username, body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "参数错误";
+        sendJson(res, 400, { error: message });
+        return;
+      }
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
     sendJson(res, 404, { error: "Not Found" });
   } catch (error) {
+    console.error("Server error:", error);
     sendJson(res, 500, { error: "Server Error" });
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
+async function startServer() {
+  await initDatabase();
+  server.listen(PORT, () => {
+    console.log(`Server listening on http://localhost:${PORT}`);
+    console.log(
+      `PostgreSQL connected: ${DB_HOST}:${DB_PORT}/${DB_NAME} (user: ${DB_USER})`
+    );
+  });
+}
+
+startServer().catch((error) => {
+  console.error("Failed to start server:", error);
+  process.exit(1);
 });

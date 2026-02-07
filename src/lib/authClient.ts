@@ -9,6 +9,46 @@ export type MemoryEntry = {
   summarySource: string;
 };
 
+export type GrowthRecordPayload = {
+  question: string;
+  snapshot: unknown;
+  suggestion: unknown;
+};
+
+export type DrillScorePayload = {
+  question: string;
+  answer: string;
+  score: number;
+  feedback?: string;
+  highlight?: string;
+  improve?: string;
+  industry?: string;
+  productId?: string;
+};
+
+export type GrowthSnapshotResponse = {
+  history: Array<{
+    id: string;
+    createdAt: string;
+    snapshot: Record<string, unknown>;
+    question: string;
+    suggestion: Record<string, unknown>;
+  }>;
+  savedScripts: Array<{
+    id: string;
+    createdAt: string;
+    snapshot: Record<string, unknown>;
+    question: string;
+    suggestion: Record<string, unknown>;
+  }>;
+  stats: {
+    totalGenerations: number;
+    totalSavedScripts: number;
+    drillScoreCount: number;
+    drillAverageScore: number;
+  };
+};
+
 const TOKEN_KEY = "pitchperfect_token";
 const USER_KEY = "pitchperfect_user";
 
@@ -74,4 +114,25 @@ export async function loginAccount(
 
 export async function saveMemoryEntry(token: string, entry: MemoryEntry) {
   return postJson<{ ok: boolean }>("/api/memory", entry, token);
+}
+
+export async function fetchGrowthSnapshot(
+  token: string
+): Promise<GrowthSnapshotResponse> {
+  return postJson<GrowthSnapshotResponse>("/api/growth/snapshot", {}, token);
+}
+
+export async function saveScriptGeneration(
+  token: string,
+  record: GrowthRecordPayload
+) {
+  return postJson<{ ok: boolean }>("/api/growth/script-generation", record, token);
+}
+
+export async function saveSavedScript(token: string, record: GrowthRecordPayload) {
+  return postJson<{ ok: boolean }>("/api/growth/saved-script", record, token);
+}
+
+export async function saveDrillScore(token: string, payload: DrillScorePayload) {
+  return postJson<{ ok: boolean }>("/api/growth/drill-score", payload, token);
 }

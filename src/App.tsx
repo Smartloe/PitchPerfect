@@ -29,10 +29,14 @@ import {
 import { cn } from "./lib/cn";
 import {
   clearAuth,
+  fetchGrowthSnapshot,
   getStoredAuth,
   loginAccount,
   registerAccount,
+  saveDrillScore,
   saveMemoryEntry,
+  saveSavedScript,
+  saveScriptGeneration,
   storeAuth
 } from "./lib/authClient";
 
@@ -226,48 +230,51 @@ const toolboxTemplates = [
   }
 ];
 
-const achievementTracks = [
+const achievementTemplates = [
   {
     id: "ach-streak",
     title: "连续训练 3 天",
     description: "保持每日练习节奏",
-    progress: 66
+    target: 3,
+    metric: "drillScoreCount" as const
   },
   {
     id: "ach-score",
     title: "平均得分 80+",
     description: "回答结构稳定",
-    progress: 45
+    target: 80,
+    metric: "averageScore" as const
   },
   {
     id: "ach-scripts",
     title: "收藏 5 条话术",
     description: "建立个人话术库",
-    progress: 20
+    target: 5,
+    metric: "savedCount" as const
   }
 ];
 
 const cardBaseStyles =
-  "relative overflow-hidden border border-white/70 bg-[linear-gradient(160deg,rgba(255,255,255,0.9),rgba(244,248,255,0.72))] ring-1 ring-white/[0.65] backdrop-blur-xl before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-20 before:bg-gradient-to-b before:from-white/60 before:to-transparent after:pointer-events-none after:absolute after:inset-0 after:border after:border-white/[0.55] after:shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]";
+  "relative overflow-hidden rounded-2xl border border-slate-200 bg-white";
 
 const cardBase = cn(
   cardBaseStyles,
-  "rounded-3xl shadow-[0_26px_64px_rgba(15,23,42,0.12)] after:rounded-[24px]"
+  "shadow-sm"
 );
 const cardSoft = cn(
   cardBaseStyles,
-  "rounded-2xl bg-[linear-gradient(165deg,rgba(255,255,255,0.88),rgba(247,250,255,0.72))] shadow-[0_18px_44px_rgba(15,23,42,0.1)] after:rounded-[20px]"
+  "bg-slate-50/80 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
 );
 const cardGhost = cn(
   cardBaseStyles,
-  "rounded-2xl bg-[linear-gradient(165deg,rgba(255,255,255,0.78),rgba(242,246,255,0.65))] shadow-[0_14px_30px_rgba(15,23,42,0.08)] after:rounded-[18px]"
+  "bg-white shadow-none"
 );
 const hoverLift =
-  "transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_30px_68px_rgba(15,23,42,0.16)]";
+  "transition-shadow duration-200 hover:shadow-md";
 const pillBase =
-  "inline-flex items-center rounded-full border border-white/70 bg-white/80 px-3 py-1 text-xs font-semibold tracking-[0.01em] text-slate-600 shadow-[0_10px_22px_rgba(15,23,42,0.08)] backdrop-blur-md transition duration-200 hover:-translate-y-0.5 hover:border-blue-200 active:border-blue-600 active:bg-blue-600 active:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200";
+  "inline-flex items-center rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition duration-200 hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-100";
 const pillSubtle =
-  "inline-flex items-center rounded-full border border-white/60 bg-white/[0.72] px-2.5 py-0.5 text-xs font-medium text-slate-500 shadow-[0_8px_18px_rgba(15,23,42,0.07)] backdrop-blur transition duration-200 hover:border-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200";
+  "inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-medium text-slate-500 transition duration-200 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-100";
 
 type FormState = MerchantProfile & {
   productId: ProductId;
@@ -300,8 +307,82 @@ type DrillReport = {
   nextSteps: string[];
 };
 
+type GrowthStats = {
+  totalGenerations: number;
+  totalSavedScripts: number;
+  drillScoreCount: number;
+  drillAverageScore: number;
+};
+
 type NavId = (typeof navItems)[number]["id"];
 type TrainingTab = (typeof trainingTabs)[number]["id"];
+
+const EMPTY_GROWTH_STATS: GrowthStats = {
+  totalGenerations: 0,
+  totalSavedScripts: 0,
+  drillScoreCount: 0,
+  drillAverageScore: 0
+};
+
+function normalizeSuggestion(value: unknown): ScriptSuggestion {
+  if (!value || typeof value !== "object") {
+    return {
+      coreValue: "",
+      objectionResponse: "",
+      caseAnalogy: "",
+      nextStep: ""
+    };
+  }
+  const record = value as Partial<ScriptSuggestion>;
+  return {
+    coreValue: String(record.coreValue || ""),
+    objectionResponse: String(record.objectionResponse || ""),
+    caseAnalogy: String(record.caseAnalogy || ""),
+    nextStep: String(record.nextStep || "")
+  };
+}
+
+function normalizeSnapshot(value: unknown): FormState {
+  const record = value && typeof value === "object" ? value : {};
+  const snapshot = record as Partial<FormState>;
+  const productIdValue = String(snapshot.productId || "");
+  const productIds = productCatalog.map((item) => item.id);
+  const validProductId = productIds.includes(productIdValue as ProductId)
+    ? (productIdValue as ProductId)
+    : (productCatalog[0]?.id ?? "online-sales");
+  const focusAreas = Array.isArray(snapshot.focusAreas)
+    ? snapshot.focusAreas
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    : [];
+
+  return {
+    industry: String(snapshot.industry || ""),
+    scale: String(snapshot.scale || ""),
+    businessDistrict: String(snapshot.businessDistrict || ""),
+    focusAreas,
+    notes: String(snapshot.notes || ""),
+    productId: validProductId
+  };
+}
+
+function normalizeHistoryItem(row: {
+  id: string;
+  createdAt: string;
+  snapshot: unknown;
+  question: string;
+  suggestion: unknown;
+}): HistoryItem {
+  return {
+    id: String(row.id || ""),
+    createdAt: row.createdAt
+      ? new Date(row.createdAt).toLocaleString("zh-CN")
+      : new Date().toLocaleString("zh-CN"),
+    snapshot: normalizeSnapshot(row.snapshot),
+    question: String(row.question || ""),
+    suggestion: normalizeSuggestion(row.suggestion)
+  };
+}
 
 const requiredFieldLabels: Record<keyof FormState, string> = {
   industry: "行业",
@@ -570,6 +651,9 @@ export default function App() {
   >("");
   const [drillStreamText, setDrillStreamText] = useState("");
   const [savedScripts, setSavedScripts] = useState<HistoryItem[]>([]);
+  const [growthStats, setGrowthStats] = useState<GrowthStats>(EMPTY_GROWTH_STATS);
+  const [growthLoading, setGrowthLoading] = useState(false);
+  const [growthError, setGrowthError] = useState("");
   const [activeCaseId, setActiveCaseId] = useState(
     caseLibrary[0]?.id ?? ""
   );
@@ -681,6 +765,39 @@ export default function App() {
     const sum = scoredItems.reduce((acc, item) => acc + (item.score ?? 0), 0);
     return Math.round(sum / scoredItems.length);
   }, [scoredItems]);
+  const displayHistoryCount = authUser
+    ? growthStats.totalGenerations
+    : history.length;
+  const displaySavedCount = authUser
+    ? growthStats.totalSavedScripts
+    : savedScripts.length;
+  const displayScoreCount = authUser
+    ? growthStats.drillScoreCount
+    : scoredItems.length;
+  const displayAverageScore = authUser
+    ? growthStats.drillAverageScore
+    : averageScore;
+  const achievementTracks = useMemo(() => {
+    return achievementTemplates.map((item) => {
+      let current = 0;
+      if (item.metric === "drillScoreCount") {
+        current = displayScoreCount;
+      } else if (item.metric === "averageScore") {
+        current = displayAverageScore;
+      } else {
+        current = displaySavedCount;
+      }
+      const progress = item.target > 0
+        ? Math.min(100, Math.round((current / item.target) * 100))
+        : 0;
+      return {
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        progress
+      };
+    });
+  }, [displayAverageScore, displaySavedCount, displayScoreCount]);
 
   const guidanceTips = useMemo(() => {
     const tips = [
@@ -748,6 +865,37 @@ export default function App() {
       setActiveCaseId(filteredCases[0].id);
     }
   }, [filteredCases, activeCaseId]);
+
+  const loadGrowthData = useCallback(async (token: string) => {
+    if (!token) return;
+    setGrowthLoading(true);
+    setGrowthError("");
+    try {
+      const snapshot = await fetchGrowthSnapshot(token);
+      setHistory(snapshot.history.map(normalizeHistoryItem).reverse());
+      setSavedScripts(snapshot.savedScripts.map(normalizeHistoryItem));
+      setGrowthStats({
+        totalGenerations: Number(snapshot.stats?.totalGenerations || 0),
+        totalSavedScripts: Number(snapshot.stats?.totalSavedScripts || 0),
+        drillScoreCount: Number(snapshot.stats?.drillScoreCount || 0),
+        drillAverageScore: Number(snapshot.stats?.drillAverageScore || 0)
+      });
+    } catch (error) {
+      setGrowthError("成长数据同步失败");
+      setMemoryNotice("成长数据同步失败");
+    } finally {
+      setGrowthLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authToken) {
+      setGrowthStats(EMPTY_GROWTH_STATS);
+      setGrowthError("");
+      return;
+    }
+    void loadGrowthData(authToken);
+  }, [authToken, loadGrowthData]);
 
   const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -1039,6 +1187,25 @@ export default function App() {
         ledger: drillLedger,
         summarySource: drillSummary
       });
+      if (authToken) {
+        void (async () => {
+          try {
+            await saveDrillScore(authToken, {
+              question,
+              answer: drillAnswer.trim(),
+              score: score.score,
+              feedback: score.feedback,
+              highlight: score.highlight,
+              improve: score.improve,
+              industry: form.industry,
+              productId: form.productId
+            });
+            await loadGrowthData(authToken);
+          } catch (error) {
+            setMemoryNotice("成长数据写入失败");
+          }
+        })();
+      }
       let updatedItems = baseItems;
       if (shouldFollowUp(score.score, drillAnswer)) {
         try {
@@ -1102,16 +1269,29 @@ export default function App() {
     }
   };
 
-  const handleSaveScript = () => {
+  const handleSaveScript = async () => {
     if (!assistantSuggestion) return;
     const record: HistoryItem = {
       id: `saved-${Date.now()}`,
       createdAt: new Date().toLocaleString("zh-CN"),
       snapshot: form,
-      question: merchantQuestion.trim(),
+      question: merchantQuestion.trim() || "常见疑义",
       suggestion: assistantSuggestion
     };
-    setSavedScripts((prev) => [record, ...prev].slice(0, 8));
+    if (!authToken) {
+      setSavedScripts((prev) => [record, ...prev].slice(0, 8));
+    } else {
+      try {
+        await saveSavedScript(authToken, {
+          question: record.question,
+          snapshot: record.snapshot,
+          suggestion: record.suggestion
+        });
+        await loadGrowthData(authToken);
+      } catch (error) {
+        setMemoryNotice("成长数据写入失败");
+      }
+    }
     setSuccessMessage("已保存到话术库");
   };
 
@@ -1149,6 +1329,10 @@ export default function App() {
           : await loginAccount(username, password);
       setAuthUser(response.username);
       setAuthToken(response.token);
+      setHistory([]);
+      setSavedScripts([]);
+      setGrowthStats(EMPTY_GROWTH_STATS);
+      setGrowthError("");
       storeAuth(response.token, response.username);
       setAuthForm({ username: "", password: "" });
       setAuthDrawerOpen(false);
@@ -1165,6 +1349,10 @@ export default function App() {
     clearAuth();
     setAuthUser("");
     setAuthToken("");
+    setHistory([]);
+    setSavedScripts([]);
+    setGrowthStats(EMPTY_GROWTH_STATS);
+    setGrowthError("");
     setMemoryNotice("已退出登录");
   };
 
@@ -1225,18 +1413,27 @@ export default function App() {
       });
       setAssistantSuggestion(response.suggestion);
       setSuccessMessage("话术已生成");
-      setHistory((prev) =>
-        [
-          ...prev,
-          {
-            id: `${Date.now()}`,
-            createdAt: new Date().toLocaleString("zh-CN"),
-            snapshot: form,
-            question: merchantQuestion.trim(),
-            suggestion: response.suggestion
-          }
-        ].slice(-5)
-      );
+      const generatedRecord: HistoryItem = {
+        id: `${Date.now()}`,
+        createdAt: new Date().toLocaleString("zh-CN"),
+        snapshot: form,
+        question: merchantQuestion.trim() || "常见疑义",
+        suggestion: response.suggestion
+      };
+      if (!authToken) {
+        setHistory((prev) => [...prev, generatedRecord].slice(-5));
+      } else {
+        try {
+          await saveScriptGeneration(authToken, {
+            question: generatedRecord.question,
+            snapshot: generatedRecord.snapshot,
+            suggestion: generatedRecord.suggestion
+          });
+          await loadGrowthData(authToken);
+        } catch (error) {
+          setMemoryNotice("成长数据写入失败");
+        }
+      }
       const objectionText =
         merchantQuestion.trim() ||
         selectedProduct?.questions[0] ||
@@ -1388,7 +1585,7 @@ export default function App() {
         <section className={cn(cardBase, "p-5", hoverLift)}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-lg font-semibold text-slate-900 font-['Rubik']">
+              <h3 className="text-lg font-semibold text-slate-900">
                 话术建议
               </h3>
               <p className="mt-1 text-sm text-slate-600">
@@ -1578,7 +1775,7 @@ export default function App() {
         </section>
 
         <section className={cn(cardBase, "p-5", hoverLift)}>
-          <h3 className="text-base font-semibold text-slate-900 font-['Rubik']">
+          <h3 className="text-base font-semibold text-slate-900">
             最近话术记录
           </h3>
           {history.length === 0 ? (
@@ -1625,7 +1822,7 @@ export default function App() {
     <section className={cn(cardBase, "p-5", hoverLift)}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-lg font-semibold text-slate-900 font-['Rubik']">
+          <h3 className="text-lg font-semibold text-slate-900">
             销售演练系统
           </h3>
           <p className="mt-1 text-sm text-slate-600">
@@ -1677,7 +1874,7 @@ export default function App() {
           </div>
           <div
             ref={drillChatRef}
-            className="mt-4 max-h-[420px] space-y-4 overflow-y-auto rounded-2xl bg-gradient-to-br from-white/60 via-white/40 to-blue-50/40 p-3 pr-2 shadow-inner"
+            className="mt-4 max-h-[420px] space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3 pr-2"
           >
             {drillQuestionsLoading ? (
               <div className="space-y-4">
@@ -1711,7 +1908,7 @@ export default function App() {
                     <div className="mt-1 h-8 w-8 rounded-full bg-slate-900 text-center text-xs font-semibold leading-8 text-white shadow-sm">
                       商
                     </div>
-                    <div className="max-w-[80%] rounded-2xl border border-white/70 bg-white/[0.85] px-4 py-3 text-sm text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur">
+                    <div className="max-w-[80%] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
                       <p>{item.question}</p>
                       {item.kind === "followup" && (
                         <span className="mt-2 inline-flex rounded-full bg-orange-100/80 px-2 py-0.5 text-xs text-orange-700">
@@ -1722,7 +1919,7 @@ export default function App() {
                   </div>
                   {item.answer && (
                     <div className="flex items-start justify-end gap-3">
-                      <div className="max-w-[80%] rounded-2xl bg-gradient-to-br from-blue-600 via-blue-600 to-indigo-600 px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(37,99,235,0.35)] ring-1 ring-white/40">
+                      <div className="max-w-[80%] rounded-2xl bg-blue-600 px-4 py-3 text-sm text-white shadow-sm">
                         <p className="text-xs text-blue-100">你的回答</p>
                         <p className="mt-2 whitespace-pre-line text-white">
                           {item.answer}
@@ -1918,7 +2115,7 @@ export default function App() {
             <p className="text-xs font-semibold uppercase text-blue-600">
               训练中心
             </p>
-            <h2 className="mt-2 text-xl font-semibold text-slate-900 font-['Rubik']">
+            <h2 className="mt-2 text-xl font-semibold text-slate-900">
               选择训练模式
             </h2>
             <p className="mt-1 text-sm text-slate-600">
@@ -1936,7 +2133,7 @@ export default function App() {
                     pillBase,
                     "px-4 py-2 text-sm font-semibold",
                     active
-                      ? "border-blue-600 bg-blue-600 text-white shadow-[0_12px_24px_rgba(37,99,235,0.25)]"
+                      ? "!border-blue-600 !bg-blue-600 !text-white shadow-[0_12px_24px_rgba(37,99,235,0.25)]"
                       : "text-slate-600 hover:border-blue-200"
                   )}
                   onClick={() => setTrainingTab(tab.id)}
@@ -1975,7 +2172,7 @@ export default function App() {
               className={cn(cardBase, "p-5", hoverLift)}
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold text-slate-900 font-['Rubik']">
+                <h3 className="text-base font-semibold text-slate-900">
                   商户画像表单
                 </h3>
                 <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -2096,7 +2293,7 @@ export default function App() {
                           className={cn(
                             pillBase,
                             active
-                              ? "border-blue-600 bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]"
+                              ? "!border-blue-600 !bg-blue-600 !text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]"
                               : "text-slate-600 hover:border-blue-200"
                           )}
                           onClick={() => toggleFocus(option)}
@@ -2273,7 +2470,7 @@ export default function App() {
                     className={cn(
                       pillBase,
                       active
-                        ? "border-blue-600 bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]"
+                        ? "!border-blue-600 !bg-blue-600 !text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]"
                         : "text-slate-600 hover:border-blue-200"
                     )}
                     onClick={() => setCaseIndustry(industry)}
@@ -2296,7 +2493,7 @@ export default function App() {
                     className={cn(
                       pillBase,
                       active
-                        ? "border-blue-600 bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]"
+                        ? "!border-blue-600 !bg-blue-600 !text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]"
                         : "text-slate-600 hover:border-blue-200"
                     )}
                     onClick={() => setCaseDistrict(district)}
@@ -2354,7 +2551,7 @@ export default function App() {
               <p className="text-xs font-semibold uppercase text-slate-500">
                 案例详情
               </p>
-              <h3 className="mt-2 text-xl font-semibold text-slate-900 font-['Rubik']">
+              <h3 className="mt-2 text-xl font-semibold text-slate-900">
                 {activeCase.title}
               </h3>
               <p className="mt-2 text-sm text-slate-600">
@@ -2438,7 +2635,7 @@ export default function App() {
                 className={cn(
                   pillBase,
                   active
-                    ? "border-blue-600 bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]"
+                    ? "!border-blue-600 !bg-blue-600 !text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]"
                     : "text-slate-600 hover:border-blue-200"
                 )}
                 onClick={() => setToolboxCategory(category)}
@@ -2516,7 +2713,7 @@ export default function App() {
             </p>
           </div>
           <span className="text-xs text-slate-500">
-            已收藏 {savedScripts.length} 条
+            已收藏 {displaySavedCount} 条
           </span>
         </div>
         {savedScripts.length === 0 ? (
@@ -2566,7 +2763,7 @@ export default function App() {
               账号与记忆
             </p>
             <p className="mt-1 text-sm text-slate-600">
-              账号登录后会自动记录对话记忆并保存为 Markdown。
+              个人中心仅展示数据，不提供注册与登录操作。
             </p>
           </div>
           {authUser && (
@@ -2582,84 +2779,28 @@ export default function App() {
         {memoryNotice && (
           <p className="mt-3 text-xs text-emerald-600">{memoryNotice}</p>
         )}
+        {authUser && growthLoading && (
+          <p className="mt-2 text-xs text-slate-500">成长数据同步中...</p>
+        )}
+        {growthError && (
+          <p className="mt-2 text-xs text-red-500">{growthError}</p>
+        )}
         {authUser ? (
           <div className={cn(cardSoft, "mt-4 p-4 text-sm text-slate-700")}>
             <p>
               当前账号：<span className="font-semibold">{authUser}</span>
             </p>
             <p className="mt-2 text-xs text-slate-500">
-              记忆将保存到服务器目录 <span className="font-semibold">server/memory</span>
+              记忆将持久化保存到 <span className="font-semibold">PostgreSQL</span>
             </p>
           </div>
         ) : (
-          <div className="mt-4 grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
-            <div className="space-y-3">
-              <div className="flex flex-wrap gap-2">
-                {["login", "register"].map((mode) => {
-                  const active = authMode === mode;
-                  return (
-                    <button
-                      key={mode}
-                      type="button"
-                      className={cn(
-                        pillBase,
-                        active
-                          ? "border-blue-600 bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.25)]"
-                          : "text-slate-600 hover:border-blue-200"
-                      )}
-                      onClick={() =>
-                        setAuthMode(mode as "login" | "register")
-                      }
-                    >
-                      {mode === "login" ? "登录" : "注册"}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="auth-username">账号</Label>
-                <Input
-                  id="auth-username"
-                  placeholder="3-16 位字母/数字/下划线"
-                  value={authForm.username}
-                  onChange={(event) =>
-                    setAuthForm((prev) => ({
-                      ...prev,
-                      username: event.target.value
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="auth-password">密码</Label>
-                <Input
-                  id="auth-password"
-                  type="password"
-                  placeholder="至少 6 位"
-                  value={authForm.password}
-                  onChange={(event) =>
-                    setAuthForm((prev) => ({
-                      ...prev,
-                      password: event.target.value
-                    }))
-                  }
-                />
-              </div>
-              {authError && (
-                <p className="text-xs text-red-600">{authError}</p>
-              )}
-              <Button
-                type="button"
-                className="w-full bg-blue-600 hover:bg-blue-500"
-                onClick={handleAuthSubmit}
-                disabled={authLoading}
-              >
-                {authLoading
-                  ? "处理中..."
-                  : authMode === "login"
-                    ? "登录并开始记忆"
-                    : "注册并开始记忆"}
-              </Button>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className={cn(cardSoft, "p-4 text-sm text-slate-600")}>
+              <p className="font-semibold text-slate-700">访客模式</p>
+              <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                个人中心已移除注册/登录入口，可继续查看训练数据与成长进度。
+              </p>
             </div>
             <div className={cn(cardSoft, "p-4 text-sm text-slate-600")}>
               <p className="font-semibold text-slate-700">记忆类型说明</p>
@@ -2689,10 +2830,10 @@ export default function App() {
                 "border-blue-100/80 bg-blue-100/90 text-blue-700 shadow-none"
               )}
             >
-              平均得分 {averageScore}
+              平均得分 {displayAverageScore}
             </span>
             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
-              收藏 {savedScripts.length}
+              收藏 {displaySavedCount}
             </span>
           </div>
         </div>
@@ -2700,19 +2841,19 @@ export default function App() {
           <div className={cn(cardSoft, "p-4")}>
             <p className="text-xs text-slate-500">累计话术生成</p>
             <p className="mt-2 text-2xl font-semibold text-slate-900">
-              {history.length}
+              {displayHistoryCount}
             </p>
           </div>
           <div className={cn(cardSoft, "p-4")}>
             <p className="text-xs text-slate-500">演练评分记录</p>
             <p className="mt-2 text-2xl font-semibold text-slate-900">
-              {scoredItems.length}
+              {displayScoreCount}
             </p>
           </div>
           <div className={cn(cardSoft, "p-4")}>
             <p className="text-xs text-slate-500">平均得分</p>
             <p className="mt-2 text-2xl font-semibold text-slate-900">
-              {averageScore}
+              {displayAverageScore}
             </p>
           </div>
         </div>
@@ -2801,7 +2942,7 @@ export default function App() {
             <p className="text-xs font-semibold uppercase text-blue-600">
               欢迎回来
             </p>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-900 font-['Rubik']">
+            <h2 className="mt-2 text-2xl font-semibold text-slate-900">
               今天开始一次高质量训练
             </h2>
             <p className="mt-2 text-sm text-slate-600">
@@ -2828,8 +2969,7 @@ export default function App() {
           </div>
         </div>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
-          <div className={cn(cardSoft, "relative overflow-hidden p-4")}>
-            <div className="pointer-events-none absolute -right-6 top-0 h-24 w-24 rounded-full bg-blue-200/50 blur-2xl" />
+          <div className={cn(cardSoft, "p-4")}>
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
               <Icon name="training" className="h-4 w-4 text-blue-600" />
               快速开始训练
@@ -2850,8 +2990,7 @@ export default function App() {
               ))}
             </div>
           </div>
-          <div className={cn(cardSoft, "relative overflow-hidden p-4")}>
-            <div className="pointer-events-none absolute -right-6 top-0 h-24 w-24 rounded-full bg-emerald-200/50 blur-2xl" />
+          <div className={cn(cardSoft, "p-4")}>
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
               <Icon name="trend" className="h-4 w-4 text-blue-600" />
               个性化指导
@@ -2868,8 +3007,7 @@ export default function App() {
               ))}
             </ul>
           </div>
-          <div className={cn(cardSoft, "relative overflow-hidden p-4")}>
-            <div className="pointer-events-none absolute -right-6 top-0 h-24 w-24 rounded-full bg-indigo-200/40 blur-2xl" />
+          <div className={cn(cardSoft, "p-4")}>
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
               <Icon name="bookmark" className="h-4 w-4 text-blue-600" />
               保存优秀话术
@@ -2878,7 +3016,7 @@ export default function App() {
               一键收藏高分话术，沉淀个人素材库。
             </p>
             <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
-              <span>已收藏 {savedScripts.length} 条</span>
+              <span>已收藏 {displaySavedCount} 条</span>
               <button
                 type="button"
                 className="text-blue-600 transition hover:text-blue-500"
@@ -2892,38 +3030,34 @@ export default function App() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className={cn(cardGhost, "relative overflow-hidden p-4", hoverLift)}>
-          <div className="pointer-events-none absolute -right-10 top-2 h-20 w-20 rounded-full bg-blue-100/70 blur-2xl" />
+        <div className={cn(cardGhost, "p-4", hoverLift)}>
           <p className="text-xs text-slate-500">话术生成</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">
-            {history.length}
+            {displayHistoryCount}
           </p>
           <p className="mt-1 text-xs text-slate-500">
             最近生成 {history[history.length - 1]?.createdAt ?? "暂无"}
           </p>
         </div>
-        <div className={cn(cardGhost, "relative overflow-hidden p-4", hoverLift)}>
-          <div className="pointer-events-none absolute -right-10 top-2 h-20 w-20 rounded-full bg-emerald-100/70 blur-2xl" />
+        <div className={cn(cardGhost, "p-4", hoverLift)}>
           <p className="text-xs text-slate-500">演练评分</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">
-            {averageScore}
+            {displayAverageScore}
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            已完成 {scoredItems.length} 条评分
+            已完成 {displayScoreCount} 条评分
           </p>
         </div>
-        <div className={cn(cardGhost, "relative overflow-hidden p-4", hoverLift)}>
-          <div className="pointer-events-none absolute -right-10 top-2 h-20 w-20 rounded-full bg-blue-200/40 blur-2xl" />
+        <div className={cn(cardGhost, "p-4", hoverLift)}>
           <p className="text-xs text-slate-500">收藏话术</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">
-            {savedScripts.length}
+            {displaySavedCount}
           </p>
           <p className="mt-1 text-xs text-slate-500">
             便于复用与分享
           </p>
         </div>
-        <div className={cn(cardGhost, "relative overflow-hidden p-4", hoverLift)}>
-          <div className="pointer-events-none absolute -right-10 top-2 h-20 w-20 rounded-full bg-indigo-200/40 blur-2xl" />
+        <div className={cn(cardGhost, "p-4", hoverLift)}>
           <p className="text-xs text-slate-500">画像完成度</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">
             {completion.percent}%
@@ -2937,7 +3071,7 @@ export default function App() {
       <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <div className={cn(cardBase, "p-5", hoverLift)}>
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-semibold text-slate-900 font-['Rubik']">
+            <h3 className="text-base font-semibold text-slate-900">
               最近训练记录
             </h3>
             <button
@@ -2996,25 +3130,25 @@ export default function App() {
             <div>
               <div className="flex items-center justify-between">
                 <span>演练平均得分</span>
-                <span>{averageScore}</span>
+                <span>{displayAverageScore}</span>
               </div>
               <div className="mt-2 h-2 w-full rounded-full bg-slate-100/70">
                 <div
                   className="h-2 rounded-full bg-emerald-500"
-                  style={{ width: `${Math.min(averageScore, 100)}%` }}
+                  style={{ width: `${Math.min(displayAverageScore, 100)}%` }}
                 />
               </div>
             </div>
             <div>
               <div className="flex items-center justify-between">
                 <span>收藏话术</span>
-                <span>{savedScripts.length} 条</span>
+                <span>{displaySavedCount} 条</span>
               </div>
               <div className="mt-2 h-2 w-full rounded-full bg-slate-100/70">
                 <div
                   className="h-2 rounded-full bg-blue-400"
                   style={{
-                    width: `${Math.min(savedScripts.length * 20, 100)}%`
+                    width: `${Math.min(displaySavedCount * 20, 100)}%`
                   }}
                 />
               </div>
@@ -3034,29 +3168,25 @@ export default function App() {
   }[activePage];
 
   return (
-    <div className="app-shell relative min-h-screen overflow-hidden bg-transparent text-slate-900">
-      <div className="pointer-events-none absolute -right-16 -top-36 h-96 w-96 rounded-full bg-blue-300/35 blur-3xl" />
-      <div className="pointer-events-none absolute left-10 top-28 h-72 w-72 rounded-full bg-emerald-200/35 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-44 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-amber-200/30 blur-3xl" />
-
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-white/[0.65] bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(239,246,255,0.72))] px-7 py-8 shadow-[0_34px_78px_rgba(15,23,42,0.16)] ring-1 ring-white/70 backdrop-blur-2xl md:flex">
+    <div className="app-shell relative min-h-screen overflow-x-hidden bg-transparent text-slate-900">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-slate-200 bg-white px-6 py-7 md:flex">
         <div>
           <span
             className={cn(
               pillBase,
-              "border-blue-100/90 bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 shadow-[0_8px_20px_rgba(37,99,235,0.16)]"
+              "border-blue-200 bg-blue-50 text-blue-700"
             )}
           >
             PitchPerfect
           </span>
-          <h1 className="mt-4 text-xl font-semibold tracking-[0.02em] text-slate-900">
+          <h1 className="mt-4 text-lg font-semibold text-slate-900">
             新人销售话术助手
           </h1>
-          <p className="mt-2 text-xs leading-relaxed text-slate-500">
+          <p className="mt-2 text-xs text-slate-500">
             AI 驱动的销售训练平台
           </p>
         </div>
-        <nav className="mt-9 space-y-2.5">
+        <nav className="mt-8 space-y-2">
           {navItems.map((item) => {
             const active = activePage === item.id;
             return (
@@ -3064,31 +3194,26 @@ export default function App() {
                 key={item.id}
                 type="button"
                 className={cn(
-                  "group flex w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5 text-left text-sm font-semibold transition-all duration-200",
+                  "group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition-colors duration-200",
                   active
-                    ? "border-white/[0.85] bg-white/[0.85] text-blue-700 shadow-[0_14px_30px_rgba(15,23,42,0.11)]"
-                    : "text-slate-600 hover:-translate-y-0.5 hover:border-white/[0.65] hover:bg-white/70"
+                    ? "border-blue-200 bg-blue-50 text-blue-700"
+                    : "border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50"
                 )}
                 onClick={() => setActivePage(item.id)}
               >
                 <span
                   className={cn(
-                    "inline-flex h-8 w-8 items-center justify-center rounded-xl border transition",
+                    "inline-flex h-8 w-8 items-center justify-center rounded-lg border transition-colors",
                     active
-                      ? "border-blue-100 bg-blue-50/90 text-blue-600 shadow-[0_10px_18px_rgba(37,99,235,0.2)]"
-                      : "border-white/70 bg-white/70 text-slate-400 group-hover:border-blue-100 group-hover:text-blue-500"
+                      ? "border-blue-200 bg-white text-blue-600"
+                      : "border-slate-200 bg-white text-slate-400 group-hover:border-slate-300 group-hover:text-slate-600"
                   )}
                 >
                   <Icon name={item.icon} className="h-4 w-4" />
                 </span>
                 <div>
                   <p>{item.label}</p>
-                  <p
-                    className={cn(
-                      "text-xs",
-                      active ? "text-blue-500/90" : "text-slate-400"
-                    )}
-                  >
+                  <p className={cn("text-xs", active ? "text-blue-600" : "text-slate-400")}>
                     {item.description}
                   </p>
                 </div>
@@ -3113,7 +3238,7 @@ export default function App() {
       </aside>
 
       <div className="relative z-10 md:pl-72">
-        <header className="sticky top-0 z-20 border-b border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(248,251,255,0.78))] shadow-[0_14px_34px_rgba(15,23,42,0.1)] backdrop-blur-2xl">
+        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-6 py-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
@@ -3133,7 +3258,7 @@ export default function App() {
                 <span className={cn(pillSubtle, "hidden sm:inline-flex")}>
                   已登录：{authUser}
                 </span>
-              ) : (
+              ) : activePage !== "profile" ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -3141,7 +3266,7 @@ export default function App() {
                 >
                   登录/注册
                 </Button>
-              )}
+              ) : null}
               <div className={cn(pillSubtle, "hidden gap-2 sm:flex")}>
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
                 实时在线
@@ -3150,12 +3275,12 @@ export default function App() {
           </div>
         </header>
 
-        <main className="mx-auto max-w-7xl px-6 pb-28 pt-20 md:pb-12">
+        <main className="mx-auto max-w-7xl px-6 pb-24 pt-8 md:pb-10">
           {pageContent}
         </main>
       </div>
 
-      <nav className="fixed bottom-3 left-3 right-3 z-30 grid grid-cols-5 items-center rounded-2xl border border-white/70 bg-white/[0.82] px-2 py-2 shadow-[0_16px_36px_rgba(15,23,42,0.16)] backdrop-blur-xl md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-5 items-center border-t border-slate-200 bg-white px-2 py-2 shadow-[0_-4px_18px_rgba(15,23,42,0.06)] md:hidden">
         {navItems.map((item) => {
           const active = activePage === item.id;
           return (
@@ -3163,10 +3288,10 @@ export default function App() {
               key={item.id}
               type="button"
               className={cn(
-                "flex flex-col items-center gap-1 rounded-xl border border-transparent px-1 py-2 text-[11px] font-medium transition-all duration-200",
+                "flex flex-col items-center gap-1 rounded-lg border px-1 py-2 text-[11px] font-medium transition-colors duration-200",
                 active
-                  ? "border-white/90 bg-white/[0.85] text-blue-600 shadow-[0_10px_22px_rgba(15,23,42,0.12)]"
-                  : "text-slate-500 hover:border-white/70 hover:bg-white/70"
+                  ? "border-blue-200 bg-blue-50 text-blue-600"
+                  : "border-transparent text-slate-500 hover:border-slate-200 hover:bg-slate-50"
               )}
               onClick={() => setActivePage(item.id)}
             >
@@ -3186,11 +3311,11 @@ export default function App() {
       {/* Auth Drawer */}
       {authDrawerOpen && (
         <div
-          className="fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-sm"
+          className="fixed inset-0 z-50 bg-slate-900/30"
           onClick={() => setAuthDrawerOpen(false)}
         >
           <div
-            className="absolute right-0 top-0 h-full w-full max-w-md border-l border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(241,247,255,0.82))] p-6 shadow-[0_24px_60px_rgba(15,23,42,0.2)] backdrop-blur-2xl"
+            className="absolute right-0 top-0 h-full w-full max-w-md border-l border-slate-200 bg-white p-6 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between">
@@ -3199,7 +3324,7 @@ export default function App() {
               </h2>
               <button
                 type="button"
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-white hover:text-slate-700"
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                 onClick={() => setAuthDrawerOpen(false)}
               >
                 <svg
@@ -3229,7 +3354,7 @@ export default function App() {
                       className={cn(
                         pillBase,
                         active
-                          ? "border-blue-600 bg-gradient-to-b from-blue-500 to-blue-600 text-white shadow-[0_12px_26px_rgba(37,99,235,0.3)]"
+                          ? "!border-blue-600 !bg-blue-600 !text-white"
                           : "text-slate-600 hover:border-blue-200"
                       )}
                       onClick={() =>

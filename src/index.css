@@ -1,19 +1,18 @@
-@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --bg-base: #f3f6fd;
+  --bg-base: #f6f8fc;
+  --panel: #ffffff;
+  --line-soft: #e2e8f0;
   --text-primary: #0f172a;
-  --text-secondary: #334155;
-  --panel: rgba(255, 255, 255, 0.74);
-  --panel-strong: rgba(255, 255, 255, 0.9);
-  --line-soft: rgba(148, 163, 184, 0.24);
-  --accent: #1d4ed8;
-  --accent-soft: rgba(29, 78, 216, 0.18);
-  font-family: "Noto Sans SC", "Outfit", "PingFang SC", "Microsoft YaHei",
+  --text-secondary: #475569;
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, 0.14);
+  font-family: "Manrope", "Noto Sans SC", "PingFang SC", "Microsoft YaHei",
     sans-serif;
   color: var(--text-primary);
   background-color: var(--bg-base);
@@ -27,52 +26,14 @@ body {
   margin: 0;
   min-height: 100vh;
   background-color: var(--bg-base);
-  background-image:
-    radial-gradient(760px 420px at -10% -8%, rgba(37, 99, 235, 0.24), transparent 65%),
-    radial-gradient(620px 340px at 108% -12%, rgba(5, 150, 105, 0.2), transparent 70%),
-    radial-gradient(680px 360px at 48% 108%, rgba(245, 158, 11, 0.16), transparent 72%),
-    linear-gradient(140deg, #eef2ff 0%, #f8fbff 38%, #eaf2ff 100%);
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.96) 0%,
+    rgba(246, 248, 252, 1) 100%
+  );
   color: var(--text-primary);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-}
-
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    repeating-linear-gradient(
-      90deg,
-      rgba(148, 163, 184, 0.06) 0 1px,
-      transparent 1px 34px
-    ),
-    repeating-linear-gradient(
-      0deg,
-      rgba(148, 163, 184, 0.045) 0 1px,
-      transparent 1px 34px
-    );
-  mask-image: radial-gradient(circle at center, black 38%, transparent 100%);
-  opacity: 0.42;
-  z-index: -2;
-}
-
-body::after {
-  content: "";
-  position: fixed;
-  inset: -24% -18%;
-  pointer-events: none;
-  background: conic-gradient(
-    from 160deg at 50% 50%,
-    rgba(37, 99, 235, 0.16),
-    rgba(5, 150, 105, 0.13),
-    rgba(245, 158, 11, 0.09),
-    rgba(37, 99, 235, 0.16)
-  );
-  filter: blur(68px);
-  opacity: 0.36;
-  z-index: -3;
 }
 
 #root {
@@ -85,13 +46,13 @@ h1,
 h2,
 h3,
 h4 {
-  font-family: "Outfit", "Noto Sans SC", "PingFang SC", sans-serif;
-  letter-spacing: 0.01em;
+  font-family: "Manrope", "Noto Sans SC", "PingFang SC", sans-serif;
+  letter-spacing: 0;
 }
 
 ::selection {
   background: var(--accent-soft);
-  color: #0b1b43;
+  color: #0f172a;
 }
 
 ::-webkit-scrollbar {
@@ -100,23 +61,19 @@ h4 {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(226, 232, 240, 0.56);
+  background: #eef2f7;
 }
 
 ::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  border: 2px solid rgba(248, 250, 252, 0.8);
-  background: linear-gradient(
-    180deg,
-    rgba(37, 99, 235, 0.6),
-    rgba(14, 116, 144, 0.56)
-  );
+  border: 2px solid #f8fafc;
+  background: #cbd5e1;
 }
 
 @keyframes app-rise {
   from {
-    opacity: 0;
-    transform: translateY(12px);
+    opacity: 0.4;
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -125,5 +82,5 @@ h4 {
 }
 
 .app-shell {
-  animation: app-rise 0.46s ease-out both;
+  animation: app-rise 0.24s ease-out both;
 }

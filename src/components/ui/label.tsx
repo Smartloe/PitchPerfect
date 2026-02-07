@@ -5,7 +5,7 @@ export function Label({ className, ...props }: LabelHTMLAttributes<HTMLLabelElem
   return (
     <label
       className={cn(
-        "text-sm font-semibold tracking-[0.01em] text-slate-700",
+        "text-sm font-semibold text-slate-700",
         className
       )}
       {...props}

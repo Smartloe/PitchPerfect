@@ -15,6 +15,7 @@
 - React + Vite + TypeScript
 - Tailwind CSS
 - Node.js 原生 http 服务端代理
+- PostgreSQL（账号与记忆持久化）
 
 ## 三方对话流程
 
@@ -39,7 +40,14 @@ ALLOWED_ORIGINS=http://localhost:5173
 PORT=8787
 RATE_LIMIT_MAX=30
 RATE_LIMIT_WINDOW_MS=60000
+PGHOST=127.0.0.1
+PGPORT=5432
+PGUSER=postgres
+PGPASSWORD=12345678
+PGDATABASE=postgres
 ```
+
+> 服务端启动时会自动创建表：`users`、`memory_entries`、`script_generations`、`saved_scripts`、`drill_scores`
 
 3. 启动服务
 
